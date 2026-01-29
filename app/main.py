@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
-from app.api.v1.router import api_router
+from app.api.opt.router import api_router
 
 app = FastAPI(title=settings.APP_NAME)
 
