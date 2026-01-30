@@ -1,12 +1,16 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+from typing import List, Optional
+
+class FixedEvent(BaseModel):
+    date: str
+    title: str
+    start: str
+    end: str
 
 class PlanGenerateRequest(BaseModel):
     region: str
-    purposes: list[str] = Field(default_factory=list)
-    date: str
-    start_time: str
-    duration_hours: float
-    transport: str
-    categories: list[str] = Field(default_factory=list)
-    crowd_mode: str
-    seed_spot_ids: list[str] | None = None
+    start_date: str
+    end_date: str
+    first_day_start_time: str
+    last_day_end_time: str
+    fixed_events: Optional[List[FixedEvent]] = []

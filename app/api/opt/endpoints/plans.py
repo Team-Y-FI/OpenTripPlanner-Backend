@@ -9,20 +9,26 @@ from app.services.plan_service import PlanService
 router = APIRouter()
 
 @router.post("/generate")
-async def generate(body: PlanGenerateRequest, db: AsyncSession = Depends(get_db), user=Depends(get_current_user)):
-    svc = PlanService(db)
-    plan = await svc.generate(user.user_id, body.model_dump())
+async def generate(body: PlanGenerateRequest):
+    ''', db: AsyncSession = Depends(get_db), user=Depends(get_current_user)'''
+    # svc = PlanService(db)
+    # plan = await svc.generate(user.user_id, body.model_dump())
+    # 테스트용
+    svc = PlanService(db=None)
+    dummy_user_id = "test_user_123"
+    result = await svc.generate(dummy_user_id, body.model_dump())
 
-    return {
-        "plan_id": plan.plan_id,
-        "summary": {
-            "region": plan.region,
-            "duration_hours": plan.duration_hours,
-            "transport": plan.transport,
-            "crowd_mode": plan.crowd_mode,
-        },
-        "variants": plan.variants_json,
-    }
+    # return {
+    #     "plan_id": plan.plan_id,
+    #     "summary": {
+    #         "region": plan.region,
+    #         "duration_hours": plan.duration_hours,
+    #         "transport": plan.transport,
+    #         "crowd_mode": plan.crowd_mode,
+    #     },
+    #     "variants": plan.variants_json,
+    # }
+    return result
 
 @router.get("/{plan_id}")
 async def get_plan(plan_id: str, db: AsyncSession = Depends(get_db), user=Depends(get_current_user)):

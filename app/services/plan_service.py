@@ -1,119 +1,98 @@
-from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import datetime, timedelta
 from app.core.exceptions import AppError
-from app.models.plan import Plan, SavedPlan
-from app.repositories.plan_repo import PlanRepository
 
-def _dummy_variants(region: str):
-    # MVP: deterministic-ish dummy (replace with real routing/POI later)
-    base_lat, base_lng = 37.55, 126.92
-    return {
-        "A": {
-            "title": "감성 카페 위주",
-            "stats": {"total_minutes": 190, "move_minutes": 42, "warnings": 1},
-            "stops": [
-                {
-                    "time": "09:00",
-                    "place": {"name": "감성 카페", "address": f"{region} 근처", "category": "카페", "lat": base_lat, "lng": base_lng},
-                    "stay_minutes": 40,
-                    "travel_minutes": 12,
-                    "crowd_level": "green",
-                },
-                {
-                    "time": "10:00",
-                    "place": {"name": "전시 공간", "address": f"{region} 근처", "category": "전시/미술관", "lat": base_lat+0.01, "lng": base_lng+0.01},
-                    "stay_minutes": 70,
-                    "travel_minutes": 20,
-                    "crowd_level": "orange",
-                },
-            ],
-        },
-        "B": {
-            "title": "야경/전망 위주",
-            "stats": {"total_minutes": 185, "move_minutes": 38, "warnings": 0},
-            "stops": [
-                {
-                    "time": "09:00",
-                    "place": {"name": "공원 산책", "address": f"{region} 근처", "category": "공원/산책", "lat": base_lat+0.015, "lng": base_lng-0.005},
-                    "stay_minutes": 50,
-                    "travel_minutes": 10,
-                    "crowd_level": "green",
-                },
-                {
-                    "time": "10:10",
-                    "place": {"name": "전망 스팟", "address": f"{region} 근처", "category": "야경/전망", "lat": base_lat+0.02, "lng": base_lng+0.02},
-                    "stay_minutes": 60,
-                    "travel_minutes": 18,
-                    "crowd_level": "green",
-                },
-            ],
-        },
-    }
+# [핵심] 우리가 만든 Route Service 및 스키마 임포트
+from app.services.route_service import route_service
+from app.schemas.plan import PlanGenerateRequest, FixedEvent
+
+# [주석 처리] DB 관련 임포트
+# from sqlalchemy.ext.asyncio import AsyncSession
+# from app.models.plan import Plan, SavedPlan
+# from app.repositories.plan_repo import PlanRepository
 
 class PlanService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db):
+        # DB 세션은 받지만 사용하지 않음
         self.db = db
-        self.repo = PlanRepository(db)
+        # [주석 처리] 레포지토리 초기화
+        # self.repo = PlanRepository(db)
 
-    async def generate(self, user_id: str, payload: dict) -> Plan:
-        # condition conflict example: duration_hours too small
-        if payload.get("duration_hours", 0) <= 0:
-            raise AppError("invalid_condition", "duration_hours must be > 0", 422)
+    async def generate(self, user_id: str, payload: dict):
+        """
+        [NO-DB 모드]
+        사용자 요청 -> RouteService(알고리즘) 실행 -> 결과 즉시 반환
+        """
+        # 1. [주석 처리] 이전 방식의 유효성 검사 (duration_hours가 없는 요청이므로 에러 방지)
+        # if payload.get("duration_hours", 0) <= 0:
+        #     raise AppError("invalid_condition", "duration_hours must be > 0", 422)
 
-        plan = Plan(
-            user_id=user_id,
-            region=payload["region"],
-            date=payload["date"],
-            start_time=payload["start_time"],
-            duration_hours=payload["duration_hours"],
-            transport=payload["transport"],
-            crowd_mode=payload["crowd_mode"],
-            purposes=payload.get("purposes", []),
-            categories=payload.get("categories", []),
-            seed_spot_ids=payload.get("seed_spot_ids"),
-            variants_json=_dummy_variants(payload["region"]),
-        )
-        return await self.repo.create_plan(plan)
+        # 2. 데이터 변환
+        # [수정] 들어온 페이로드 구조에 맞춰 직접 매핑하거나 Pydantic 객체 생성
+        try:
+            # 고정 일정 변환
+            fixed_events = []
+            if "fixed_events" in payload:
+                for evt in payload["fixed_events"]:
+                    fixed_events.append(FixedEvent(**evt))
 
-    async def get_plan(self, user_id: str, plan_id: str) -> Plan:
-        plan = await self.repo.get_plan(user_id, plan_id)
-        if not plan:
-            raise AppError("not_found", "Plan not found", 404)
-        return plan
+            # RouteService 요청 객체 생성 (들어온 payload 데이터를 그대로 활용)
+            request_data = PlanGenerateRequest(
+                region=payload["region"],
+                start_date=payload["start_date"],
+                end_date=payload["end_date"],
+                first_day_start_time=payload["first_day_start_time"],
+                last_day_end_time=payload["last_day_end_time"],
+                fixed_events=fixed_events
+            )
+        except Exception as e:
+            raise AppError("invalid_payload", f"데이터 매핑 에러: {str(e)}", 422)
+
+        # 3. [핵심] 알고리즘 실행 (파이썬 파일 로직 작동 확인용)
+        try:
+            print(f"🚀 [PlanService] 경로 생성 알고리즘 시작 (User: {user_id})")
+            # route_service.py 의 generate_plan 호출
+            generated_plans_json = route_service.generate_plan(request_data)
+            print("✅ [PlanService] 경로 생성 완료")
+        except Exception as e:
+            print(f"❌ [PlanService] 알고리즘 에러: {e}")
+            raise AppError("generation_failed", str(e), 500)
+
+        # 4. [주석 처리] DB 저장 로직
+        # plan = Plan(
+        #     user_id=user_id,
+        #     region=payload["region"],
+        #     variants_json=generated_plans_json,
+        # )
+        # return await self.repo.create_plan(plan)
+
+        # 5. 결과 반환 (DB 저장 없이 딕셔너리로 바로 리턴)
+        return {
+            "plan_id": "temp_no_db_id", 
+            "summary": {
+                "region": payload["region"],
+                "start_date": payload["start_date"],
+                "end_date": payload["end_date"],
+                "transport": payload.get("transport", "public"),
+                "crowd_mode": payload.get("crowd_mode", "default"),
+            },
+            "variants": generated_plans_json # 실제 알고리즘 결과
+        }
+
+    # -------------------------------------------------------
+    # DB 의존 메서드들 (전부 주석 처리 또는 에러 처리)
+    # -------------------------------------------------------
+
+    async def get_plan(self, user_id: str, plan_id: str):
+        raise AppError("not_implemented", "DB disabled for testing", 501)
 
     async def save_plan(self, user_id: str, plan_id: str, title: str | None):
-        plan = await self.repo.get_plan(user_id, plan_id)
-        if not plan:
-            raise AppError("not_found", "Plan not found", 404)
-
-        if await self.repo.get_saved_by_plan_id(user_id, plan_id):
-            raise AppError("conflict", "Already saved", 409)
-
-        saved = SavedPlan(
-            user_id=user_id,
-            plan_id=plan.plan_id,
-            title=title or f"{plan.region} {plan.duration_hours}시간 코스",
-            date=plan.date,
-            region=plan.region,
-        )
-        saved = await self.repo.create_saved_plan(saved)
-
-        # Link spots from seed_spot_ids (if any) to support Records(Spot) -> related plans
-        spot_ids = plan.seed_spot_ids or []
-        await self.repo.create_plan_spot_links(saved.saved_plan_id, spot_ids)
-
-        return saved
+        raise AppError("not_implemented", "DB disabled for testing", 501)
 
     async def list_saved_plans(self, user_id: str, limit: int = 20):
-        return await self.repo.list_saved_plans(user_id, limit=limit)
+        return []
 
     async def get_saved_plan(self, user_id: str, saved_plan_id: str):
-        saved = await self.repo.get_saved_plan(user_id, saved_plan_id)
-        if not saved:
-            raise AppError("not_found", "Saved plan not found", 404)
-        plan = await self.repo.get_plan(user_id, saved.plan_id)
-        if not plan:
-            raise AppError("not_found", "Plan not found", 404)
-        return saved, plan
+        raise AppError("not_implemented", "DB disabled for testing", 501)
 
     async def list_saved_plans_by_spot(self, user_id: str, spot_id: str, limit: int = 20):
-        return await self.repo.list_saved_plans_by_spot(user_id, spot_id, limit=limit)
+        return []
