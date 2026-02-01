@@ -111,65 +111,65 @@ class RouteOptimizerService:
             return
         
         start_t = time.time()
-        print("🔄 리소스 초기화 시작...")
+        print("리소스 초기화 시작...")
         
         load_dotenv()
         self.api_key = os.getenv("GOOGLE_API_KEY")
 
         # 1) 혼잡도 모델
-        print("🧠 혼잡도 예측 모델 로드 중...")
+        print("혼잡도 예측 모델 로드 중...")
         try:
             if os.path.exists(MODEL_FILE):
                 self.congestion_model = joblib.load(MODEL_FILE)
-                print("✅ 혼잡도 모델 로드 성공")
+                print("혼잡도 모델 로드 성공")
         except Exception as e:
-            print(f"⚠️ 혼잡도 모델 로드 실패: {e}")
+            print(f"혼잡도 모델 로드 실패: {e}")
             self.congestion_model = None
 
         # 2) 장소 데이터
-        print("📂 장소 데이터 로드 중...")
+        print("장소 데이터 로드 중...")
         try:
             if os.path.exists(PLACE_FILE):
                 self.df_places = pd.read_excel(PLACE_FILE)
-                print(f"✅ 장소 데이터 로드: {len(self.df_places)}개")
+                print(f"장소 데이터 로드: {len(self.df_places)}개")
         except Exception as e:
-            print(f"⚠️ 장소 데이터 로드 실패: {e}")
+            print(f"장소 데이터 로드 실패: {e}")
             self.df_places = None
 
         # 3) 교통 네트워크
-        print("🚇 교통 네트워크 로드 중...")
+        print("교통 네트워크 로드 중...")
         if os.path.exists(TN_CACHE_PATH):
             try:
                 tn = TransportNetwork.__new__(TransportNetwork)
                 tn._transport_network = TransportNetwork._load_pickled_transport_network(tn, TN_CACHE_PATH)
                 self.transport_network = tn
-                print("✅ 교통 네트워크 캐시 로드 완료")
+                print("교통 네트워크 캐시 로드 완료")
             except Exception as e:
-                print(f"⚠️ 캐시 로드 실패, 재생성: {e}")
+                print(f"캐시 로드 실패, 재생성: {e}")
                 self._build_transport_network()
         else:
             self._build_transport_network()
 
         # 4) 메타데이터
-        print("⚡ 메타데이터 로드 중...")
+        print("메타데이터 로드 중...")
         self._load_metadata()
 
         self.init_duration = round(time.time() - start_t, 3)
         self.is_initialized = True
-        print(f"✅ 리소스 초기화 완료 ({self.init_duration}초)\n")
+        print(f"리소스 초기화 완료 ({self.init_duration}초)\n")
 
     def _build_transport_network(self):
         """교통 네트워크 새로 빌드 및 캐싱"""
-        print("🚀 TransportNetwork 생성 중 (최초 1회)...")
+        print("TransportNetwork 생성 중 (최초 1회)...")
         self.transport_network = TransportNetwork(OSM_FILE, GTFS_FILES)
         try:
             self.transport_network._save_pickled_transport_network(
                 self.transport_network._transport_network,
                 TN_CACHE_PATH
             )
-            print("💾 교통 네트워크 캐시 저장 완료")
+            print("교통 네트워크 캐시 저장 완료")
         except Exception as e:
-            print(f"⚠️ 캐시 저장 실패: {e}")
+            print(f"캐시 저장 실패: {e}")
 
     def _load_metadata(self):
         """GTFS 메타데이터 로드 (정류장, 노선 정보)"""
@@ -180,10 +180,10 @@ class RouteOptimizerService:
                 self.route_id_to_name = meta.get('routes', {})
                 self.stop_route_map = meta.get('stop_route_map', {})
                 self.stop_coords = meta.get('coords', {})
-            print(f"✅ 메타데이터 캐시 로드: 정류장 {len(self.stop_id_to_name)}개")
+            print(f"메타데이터 캐시 로드: 정류장 {len(self.stop_id_to_name)}개")
             return
 
-        print("🐢 메타데이터 생성 중 (좌표 포함)...")
+        print("메타데이터 생성 중 (좌표 포함)...")
         with zipfile.ZipFile(GTFS_FILES[0]) as z:
             # 정류장 정보
             with z.open('stops.txt') as f:
@@ -218,7 +218,7 @@ class RouteOptimizerService:
                 merged = stop_times.merge(trips, on='trip_id')[['stop_id', 'route_id']].drop_duplicates()
                 self.stop_route_map = merged.groupby('stop_id')['route_id'].apply(set).to_dict()
             except Exception as e:
-                print(f"⚠️ 정류장-노선 매핑 실패: {e}")
+                print(f"정류장-노선 매핑 실패: {e}")
                 self.stop_route_map = {}
 
         # 캐시 저장
@@ -229,7 +229,7 @@ class RouteOptimizerService:
                 'stop_route_map': self.stop_route_map,
                 'coords': self.stop_coords
             }, f)
-        print("💾 메타데이터 캐시 저장 완료")
+        print("메타데이터 캐시 저장 완료")
 
     # ========== 혼잡도 & 유틸리티 ==========
     
@@ -307,7 +307,7 @@ class RouteOptimizerService:
             
             return r5_travel_times
         except Exception as e:
-            print(f"⚠️ r5py 행렬 계산 오류: {e}")
+            print(f"r5py 행렬 계산 오류: {e}")
             return {}
     
     
@@ -385,7 +385,7 @@ class RouteOptimizerService:
                 max_time=timedelta(minutes=MAX_TRAVEL_TIME_MIN)
             )
         except Exception as e:
-            print(f"⚠️ R5py Error: {e}")
+            print(f"R5py Error: {e}")
             return path_map
 
         if computer is None or computer.empty: return path_map
@@ -825,7 +825,7 @@ class RouteOptimizerService:
         solution = routing.SolveWithParameters(search_params)
         
         if not solution:
-            print("⚠️ OR-Tools 최적화 실패")
+            print("OR-Tools 최적화 실패")
             return {"fastest_version": [], "min_transfer_version": []}
 
         # 방문 순서 추출
@@ -840,10 +840,10 @@ class RouteOptimizerService:
         # 상세 경로 계산
         trip_legs = [(visited_nodes[i], visited_nodes[i+1]) for i in range(len(visited_nodes)-1)]
         
-        print("🚀 상세 경로 계산 중...")
+        print("상세 경로 계산 중...")
         start_path_time = time.time()
         path_map = self._get_all_detailed_paths(trip_legs, r5_dep_dt)
-        print(f"⏱ 상세 경로 계산 완료: {round(time.time() - start_path_time, 2)}초")
+        print(f"상세 경로 계산 완료: {round(time.time() - start_path_time, 2)}초")
 
         return {
             "fastest_version": self._build_timeline_by_type(visited_nodes, path_map, display_start_dt, target_date_str, "fastest"),
@@ -865,14 +865,14 @@ class RouteOptimizerService:
 
     def _get_gemini_recommendation(self, days, places, restaurants, accommodations):
         if os.path.exists(RESULT_JSON_PATH):
-            print("📂 result.json 발견 → Gemini 호출 생략")
+            print("result.json 발견 → Gemini 호출 생략")
             try:
                 with open(RESULT_JSON_PATH, "r", encoding="utf-8") as f:
                     return json.load(f), 0
             except: pass
         
         if not self.api_key:
-            print("⚠️ Google API Key 없음")
+            print("Google API Key 없음")
             return None, 0
         
         client = genai.Client(api_key=self.api_key)
@@ -906,7 +906,7 @@ class RouteOptimizerService:
         }
         
         try:
-            print("🤖 Gemini가 초기 계획을 생성하고 있습니다...")
+            print("Gemini가 초기 계획을 생성하고 있습니다...")
             prompt = system_prompt + "\n\n" + json.dumps(user_prompt, ensure_ascii=False)
             response = client.models.generate_content(
                 model="gemini-2.5-flash-lite", contents=prompt, config={"temperature": 0}
@@ -918,7 +918,7 @@ class RouteOptimizerService:
             
             return plan
         except Exception as e:
-            print(f"⚠️ Gemini API 오류: {e}")
+            print(f"Gemini API 오류: {e}")
             return None, 0
 
     # ========== 메인 API: generate_plan ==========
@@ -969,7 +969,7 @@ class RouteOptimizerService:
         start_dt = datetime.strptime(request.start_date, '%Y-%m-%d')
         end_dt = datetime.strptime(request.end_date, '%Y-%m-%d')
         days = (end_dt - start_dt).days + 1
-        print(f"📅 총 여행 일수: {days}일")
+        print(f"총 여행 일수: {days}일")
 
         # 4. Gemini AI 추천 호출
         start_gemini = time.time()
@@ -987,7 +987,7 @@ class RouteOptimizerService:
         plans = gemini_plan['plans']
         day_keys = list(plans.keys())
         
-        print(f"\n🚀 병렬 최적화 시작: {len(day_keys)}일치 일정 계산")
+        print(f"\n 병렬 최적화 시작: {len(day_keys)}일치 일정 계산")
         start_total_opt = time.time()
 
         def process_day_wrapper(args):
@@ -1023,7 +1023,7 @@ class RouteOptimizerService:
                 processed_results[day_key] = day_res
 
         opt_duration = round(time.time() - start_total_opt, 2)
-        print(f"⏱ 전체 최적화 완료: {opt_duration}초")
+        print(f"전체 최적화 완료: {opt_duration}초")
 
         # 6. 결과 취합
         final_result = {}
