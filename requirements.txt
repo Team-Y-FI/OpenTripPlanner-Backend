@@ -15,3 +15,22 @@ python-multipart
 orjson==3.10.7
 
 exifread==3.0.0
+
+# Data Science & Analysis
+pandas
+numpy
+openpyxl
+joblib
+scikit-learn
+
+# Geospatial & Routing (GIS)
+geopandas
+r5py
+ortools
+
+# Google Gemini AI
+google-genai
+
+# Utilities
+python-dotenv
+exifread
