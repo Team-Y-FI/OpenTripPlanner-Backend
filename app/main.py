@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.api.opt.router import api_router
+from app.core.state import verif_store
 
 app = FastAPI(title=settings.APP_NAME)
 
@@ -25,3 +26,7 @@ app.mount("/storage", StaticFiles(directory=settings.STORAGE_DIR), name="storage
 
 app.include_router(api_router, prefix="/otp")
 register_exception_handlers(app)
+
+@app.on_event("startup")
+async def startup():
+    await verif_store.init()

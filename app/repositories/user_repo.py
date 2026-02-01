@@ -19,3 +19,8 @@ class UserRepository:
         await self.db.commit()
         await self.db.refresh(user)
         return user
+        
+    async def exists_email(self, email: str) -> bool:
+        stmt = select(User.user_id).where(User.email == email.lower()).limit(1)
+        res = await self.db.execute(stmt)
+        return res.scalar_one_or_none() is not None
