@@ -1,10 +1,18 @@
-import uuid
-from datetime import datetime, timezone
+# app/models/base.py
+from __future__ import annotations
+
+import datetime as dt
+from sqlalchemy import DateTime, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import DateTime
+
 
 class Base(DeclarativeBase):
     pass
 
+
 class TimestampMixin:
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
