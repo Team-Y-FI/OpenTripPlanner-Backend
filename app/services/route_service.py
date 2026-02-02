@@ -190,19 +190,19 @@ class RouteOptimizerService:
 
     def _get_stay_weight(self, level):
         """체류 시간 가중치"""
-        if level == 2: return 1.35
-        elif level == 1: return 1.15
+        if level == 2: return 1.4
+        elif level == 1: return 1.2
         else: return 1.0
 
     def _get_travel_time_weight(self, level, mode="transport"):
         """이동 시간 가중치"""
         if mode == "car":
+            if level == 2: return 2.0
+            elif level == 1: return 1.7
+        elif mode == "bus":
             if level == 2: return 1.8
             elif level == 1: return 1.5
-        elif mode == "bus":
-            if level == 2: return 1.6
-            elif level == 1: return 1.4
-        return 1.1
+        return 1.2
 
     def _haversine(self, lat1, lon1, lat2, lon2):
         if lat1 is None or lat2 is None or lon1 is None or lon2 is None: return 0
@@ -416,14 +416,14 @@ class RouteOptimizerService:
         if len(visited_nodes) < 2: return []
         cursor_dt = display_start_dt
         
-        # [설정] 혼잡도 아이콘 매핑
         ICONS = {0: "🟢", 1: "🟡", 2: "🔴"}
 
         for i in range(1, len(visited_nodes)):
             prev, node = visited_nodes[i-1], visited_nodes[i]
             transit_info, travel_min = [], 0
             
-            max_traffic_lvl = 0 
+            # [최적화] 도착지 교통 혼잡도 미리 계산 (이동 시간 & 라벨링에 공통 사용)
+            dest_traffic_lvl = self._get_traffic_level(node.get('lat'), node.get('lng'), cursor_dt)
             traffic_checked = False
 
             # 1. 이동 처리
@@ -434,39 +434,35 @@ class RouteOptimizerService:
                     for segment in chosen_path:
                         seg_mins = sum(int(m) for m in re.findall(r'(\d+)분', segment))
                         mode_weight = 1.0
-                        target_lat, target_lng = node.get('lat'), node.get('lng')
                         
-                        # [대기]
+                        # [대기] 출발지(prev) 기준
                         if "대기" in segment:
-                            cong_lvl = self._get_traffic_level(prev.get('lat'), prev.get('lng'), cursor_dt)
-                            max_traffic_lvl = max(max_traffic_lvl, cong_lvl)
-                            traffic_checked = True
-                            
-                            mode_weight = self._get_wait_weight(cong_lvl)
+                            origin_traffic_lvl = self._get_traffic_level(prev.get('lat'), prev.get('lng'), cursor_dt)
+                            mode_weight = self._get_wait_weight(origin_traffic_lvl)
                             final_seg = math.ceil(seg_mins * mode_weight)
                             added = final_seg - seg_mins
-                            
                             clean_seg = segment
                             if added > 0: 
-                                clean_seg = re.sub(r'\d+분', f'{final_seg}분', segment) + f" [대기지연 +{added}분]"
+                                icon = ICONS.get(origin_traffic_lvl, "")
+                                clean_seg = re.sub(r'\d+분', f'{final_seg}분', segment) + f" [⏳{icon}대기지연 +{added}분]"
                             transit_info.append(clean_seg)
                             travel_min += final_seg
                         
-                        # [이동]
+                        # [이동] 도착지(dest) 기준 -> 미리 계산한 dest_traffic_lvl 활용!
                         elif "승용차" in segment or "버스" in segment:
-                            cong_lvl = self._get_traffic_level(target_lat, target_lng, cursor_dt)
-                            max_traffic_lvl = max(max_traffic_lvl, cong_lvl)
                             traffic_checked = True
-
                             mode_key = "car" if "승용차" in segment else "bus"
-                            mode_weight = self._get_travel_time_weight(cong_lvl, mode_key)
+                            
+                            # [여기서 재사용!]
+                            mode_weight = self._get_travel_time_weight(dest_traffic_lvl, mode_key)
                             final_seg = math.ceil(seg_mins * mode_weight)
                             added = final_seg - seg_mins
                             
                             clean_seg = segment
                             if added > 0:
-                                status_text = {1: "서행", 2: "정체"}.get(cong_lvl, "지체")
-                                clean_seg = re.sub(r'\d+분', f'{final_seg}분', segment) + f" [{status_text} +{added}분]"
+                                status_text = {1: "서행", 2: "정체"}.get(dest_traffic_lvl, "지체")
+                                icon = ICONS.get(dest_traffic_lvl, "")
+                                clean_seg = re.sub(r'\d+분', f'{final_seg}분', segment) + f" [🚗{icon}{status_text} +{added}분]"
                             transit_info.append(clean_seg)
                             travel_min += final_seg
                         
@@ -490,9 +486,10 @@ class RouteOptimizerService:
                     transit_info.append(f"현장 대기 : {wait_min}분 (식사 시간 준수)")
                     arrival_dt = win_start
 
-            # 3. 체류 시간 (Population Level) & 라벨 생성
+            # 3. 체류 시간 및 라벨 생성 (수정됨)
             final_stay = node["stay"]
             pop_label = "정보없음"
+            time_congestion_info = "" # time 뒤에 붙을 문자열
             
             if node["type"] not in ["fixed", "depot"]:
                 pop_lvl = self._get_population_level(node.get('lat'), node.get('lng'), arrival_dt)
@@ -502,32 +499,38 @@ class RouteOptimizerService:
                 pop_txt = {0: "여유", 1: "보통", 2: "혼잡"}.get(pop_lvl, "정보없음")
                 icon = ICONS.get(pop_lvl, "")
                 
-                # [수정] 아이콘 + 텍스트 결합
-                if add_stay > 0: pop_label = f"{icon}{pop_txt} (+{add_stay}분)"
-                else: pop_label = f"{icon}{pop_txt}"
+                # [변경] population_level은 깔끔하게 상태만 표시
+                pop_label = f"{icon}{pop_txt}"
+                
+                # [변경] 추가 시간 정보는 time 필드용 변수에 저장
+                if add_stay > 0:
+                    time_congestion_info = f" [{icon}{pop_txt} (+{add_stay}분)]"
                 
             elif node["type"] == "fixed":
                 pop_label = "📅고정일정"
 
-            # Traffic Level 라벨 생성
-            traffic_label = "정보없음"
-            if traffic_checked:
-                t_txt = {0: "원활", 1: "서행", 2: "정체"}.get(max_traffic_lvl, "정보없음")
-                t_icon = ICONS.get(max_traffic_lvl, "")
-                traffic_label = f"{t_icon}{t_txt}"
-            elif i == 1:
+            # Traffic Level 라벨링
+            traffic_label = "-"
+            if i == 1:
                 traffic_label = "-"
+            elif traffic_checked:
+                t_txt = {0: "원활", 1: "서행", 2: "정체"}.get(dest_traffic_lvl, "정보없음")
+                t_icon = ICONS.get(dest_traffic_lvl, "")
+                traffic_label = f"{t_icon}{t_txt}"
             else:
                 traffic_label = "🟢도보/원활"
 
-            # 4. 시간 갱신
+            # 4. 시간 갱신 (수정됨)
             if node["type"] == "fixed":
                 t_parts = node.get("orig_time_str").split(" - ")
                 cursor_dt = datetime.strptime(f"{target_date_str} {t_parts[1]}", "%Y-%m-%d %H:%M")
                 time_str = node.get("orig_time_str")
             else:
                 end_dt = arrival_dt + timedelta(minutes=final_stay)
-                time_str = f"{arrival_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}"
+                
+                # [변경] time 문자열 생성 시 혼잡 정보 붙이기
+                time_str = f"{arrival_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}{time_congestion_info}"
+                
                 cursor_dt = end_dt
 
             timeline.append({
