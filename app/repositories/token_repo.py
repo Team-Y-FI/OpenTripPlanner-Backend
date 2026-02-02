@@ -1,32 +1,48 @@
-import hashlib
+# app/repositories/token_repo.py
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+from uuid import uuid4
+
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+
 from app.models.token import RefreshToken
 
-def hash_refresh(token: str) -> str:
-    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
-class RefreshTokenRepository:
+class TokenRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def create(self, user_id: str, refresh_token: str, expires_at):
-        token_hash = hash_refresh(refresh_token)
-        row = RefreshToken(user_id=user_id, token_hash=token_hash, expires_at=expires_at)
-        self.db.add(row)
+    async def issue(self, *, user_id: str, token_hash: str, expires_days: int = 14) -> RefreshToken:
+        rt = RefreshToken(
+            token_id=uuid4().hex,  # ✅ NOT NULL 충족: 우리가 직접 만든다
+            user_id=user_id,
+            token_hash=token_hash,
+            revoked=False,
+            expires_at=datetime.utcnow() + timedelta(days=expires_days),
+        )
+        self.db.add(rt)
         await self.db.commit()
-        await self.db.refresh(row)
-        return row
+        await self.db.refresh(rt)
+        return rt
 
-    async def is_active(self, refresh_token: str) -> bool:
-        token_hash = hash_refresh(refresh_token)
+    async def get_by_hash(self, token_hash: str) -> RefreshToken | None:
         res = await self.db.execute(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
-        row = res.scalar_one_or_none()
-        if not row:
-            return False
-        return not row.revoked
+        return res.scalar_one_or_none()
 
-    async def revoke(self, refresh_token: str):
-        token_hash = hash_refresh(refresh_token)
-        await self.db.execute(update(RefreshToken).where(RefreshToken.token_hash == token_hash).values(revoked=True))
+    async def revoke(self, *, token_id: str) -> None:
+        await self.db.execute(
+            update(RefreshToken).where(RefreshToken.token_id == token_id).values(revoked=True)
+        )
+        await self.db.commit()
+
+    async def revoke_all(self, *, user_id: str) -> None:
+        await self.db.execute(
+            update(RefreshToken).where(RefreshToken.user_id == user_id).values(revoked=True)
+        )
+        await self.db.commit()
+
+    async def delete_all(self, *, user_id: str) -> None:
+        await self.db.execute(delete(RefreshToken).where(RefreshToken.user_id == user_id))
         await self.db.commit()
