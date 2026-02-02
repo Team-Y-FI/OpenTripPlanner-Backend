@@ -111,65 +111,65 @@ class RouteOptimizerService:
             return
         
         start_t = time.time()
-        print("🔄 리소스 초기화 시작...")
+        print("리소스 초기화 시작...")
         
         load_dotenv()
         self.api_key = os.getenv("GOOGLE_API_KEY")
 
         # 1) 혼잡도 모델
-        print("🧠 혼잡도 예측 모델 로드 중...")
+        print("혼잡도 예측 모델 로드 중...")
         try:
             if os.path.exists(MODEL_FILE):
                 self.congestion_model = joblib.load(MODEL_FILE)
-                print("✅ 혼잡도 모델 로드 성공")
+                print("혼잡도 모델 로드 성공")
         except Exception as e:
-            print(f"⚠️ 혼잡도 모델 로드 실패: {e}")
+            print(f"혼잡도 모델 로드 실패: {e}")
             self.congestion_model = None
 
         # 2) 장소 데이터
-        print("📂 장소 데이터 로드 중...")
+        print("장소 데이터 로드 중...")
         try:
             if os.path.exists(PLACE_FILE):
                 self.df_places = pd.read_excel(PLACE_FILE)
-                print(f"✅ 장소 데이터 로드: {len(self.df_places)}개")
+                print(f"장소 데이터 로드: {len(self.df_places)}개")
         except Exception as e:
-            print(f"⚠️ 장소 데이터 로드 실패: {e}")
+            print(f"장소 데이터 로드 실패: {e}")
             self.df_places = None
 
         # 3) 교통 네트워크
-        print("🚇 교통 네트워크 로드 중...")
+        print("교통 네트워크 로드 중...")
         if os.path.exists(TN_CACHE_PATH):
             try:
                 tn = TransportNetwork.__new__(TransportNetwork)
                 tn._transport_network = TransportNetwork._load_pickled_transport_network(tn, TN_CACHE_PATH)
                 self.transport_network = tn
-                print("✅ 교통 네트워크 캐시 로드 완료")
+                print("교통 네트워크 캐시 로드 완료")
             except Exception as e:
-                print(f"⚠️ 캐시 로드 실패, 재생성: {e}")
+                print(f"캐시 로드 실패, 재생성: {e}")
                 self._build_transport_network()
         else:
             self._build_transport_network()
 
         # 4) 메타데이터
-        print("⚡ 메타데이터 로드 중...")
+        print("메타데이터 로드 중...")
         self._load_metadata()
 
         self.init_duration = round(time.time() - start_t, 3)
         self.is_initialized = True
-        print(f"✅ 리소스 초기화 완료 ({self.init_duration}초)\n")
+        print(f"리소스 초기화 완료 ({self.init_duration}초)\n")
 
     def _build_transport_network(self):
         """교통 네트워크 새로 빌드 및 캐싱"""
-        print("🚀 TransportNetwork 생성 중 (최초 1회)...")
+        print("TransportNetwork 생성 중 (최초 1회)...")
         self.transport_network = TransportNetwork(OSM_FILE, GTFS_FILES)
         try:
             self.transport_network._save_pickled_transport_network(
                 self.transport_network._transport_network,
                 TN_CACHE_PATH
             )
-            print("💾 교통 네트워크 캐시 저장 완료")
+            print("교통 네트워크 캐시 저장 완료")
         except Exception as e:
-            print(f"⚠️ 캐시 저장 실패: {e}")
+            print(f"캐시 저장 실패: {e}")
 
     def _load_metadata(self):
         """GTFS 메타데이터 로드 (정류장, 노선 정보)"""
@@ -180,10 +180,10 @@ class RouteOptimizerService:
                 self.route_id_to_name = meta.get('routes', {})
                 self.stop_route_map = meta.get('stop_route_map', {})
                 self.stop_coords = meta.get('coords', {})
-            print(f"✅ 메타데이터 캐시 로드: 정류장 {len(self.stop_id_to_name)}개")
+            print(f"메타데이터 캐시 로드: 정류장 {len(self.stop_id_to_name)}개")
             return
 
-        print("🐢 메타데이터 생성 중 (좌표 포함)...")
+        print("메타데이터 생성 중 (좌표 포함)...")
         with zipfile.ZipFile(GTFS_FILES[0]) as z:
             # 정류장 정보
             with z.open('stops.txt') as f:
@@ -218,7 +218,7 @@ class RouteOptimizerService:
                 merged = stop_times.merge(trips, on='trip_id')[['stop_id', 'route_id']].drop_duplicates()
                 self.stop_route_map = merged.groupby('stop_id')['route_id'].apply(set).to_dict()
             except Exception as e:
-                print(f"⚠️ 정류장-노선 매핑 실패: {e}")
+                print(f"정류장-노선 매핑 실패: {e}")
                 self.stop_route_map = {}
 
         # 캐시 저장
@@ -229,7 +229,7 @@ class RouteOptimizerService:
                 'stop_route_map': self.stop_route_map,
                 'coords': self.stop_coords
             }, f)
-        print("💾 메타데이터 캐시 저장 완료")
+        print("메타데이터 캐시 저장 완료")
 
     # ========== 혼잡도 & 유틸리티 ==========
     
@@ -276,11 +276,10 @@ class RouteOptimizerService:
 
     # ========== R5PY 경로 계산 ==========
     
-    def _get_r5py_matrix(self, nodes, departure_time):
+    def _get_r5py_matrix(self, nodes, departure_time, transport_mode="transport"):
         """r5py 이동 시간 행렬 계산 (안전한 노드 필터링 적용)"""
         valid_nodes = [n for n in nodes if n.get('lat') is not None]
-        if len(valid_nodes) < 2:
-            return {}
+        if len(valid_nodes) < 2: return {}
 
         gdf = gpd.GeoDataFrame(
             valid_nodes,
@@ -291,13 +290,16 @@ class RouteOptimizerService:
             crs='EPSG:4326'
         )
 
+        # 모드 설정
+        modes = [TransportMode.CAR] if transport_mode == "car" else [TransportMode.WALK, TransportMode.TRANSIT]
+
         try:
             matrix = TravelTimeMatrix(
                 self.transport_network,
                 origins=gdf,
                 destinations=gdf,
                 departure=departure_time,
-                transport_modes=[TransportMode.WALK, TransportMode.TRANSIT]
+                transport_modes=modes
             )
             
             r5_travel_times = {}
@@ -307,7 +309,7 @@ class RouteOptimizerService:
             
             return r5_travel_times
         except Exception as e:
-            print(f"⚠️ r5py 행렬 계산 오류: {e}")
+            print(f"r5py 행렬 계산 오류: {e}")
             return {}
     
     
@@ -325,7 +327,7 @@ class RouteOptimizerService:
         # 키: (출발이름, 출발위도, 출발경도, 도착이름, 도착위도, 도착경도, 시간)
         return (s_name, s_lat, s_lng, e_name, e_lat, e_lng, departure_time.hour)
     
-    def _get_all_detailed_paths(self, trip_legs, departure_time):
+    def _get_all_detailed_paths(self, trip_legs, departure_time, transport_mode="transport"):
         """
         상세 경로 계산 (수정됨: 시간 계산 시 올림(ceil) 처리로 0분 방지)
         """
@@ -374,18 +376,22 @@ class RouteOptimizerService:
         )
         dgdf['id'] = [n['id'] for n in dests_list]
 
+        # 모드 설정
+        modes = [TransportMode.CAR] if transport_mode == "car" else [TransportMode.WALK, TransportMode.TRANSIT]
+        max_rides = 0 if transport_mode == "car" else MAX_TRANSFERS
+
         try:
             computer = DetailedItineraries(
                 self.transport_network, 
                 origins=ogdf, 
                 destinations=dgdf, 
                 departure=departure_time,
-                transport_modes=[TransportMode.WALK, TransportMode.TRANSIT],
-                max_public_transport_rides=MAX_TRANSFERS, 
+                transport_modes=modes,
+                max_public_transport_rides=max_rides, 
                 max_time=timedelta(minutes=MAX_TRAVEL_TIME_MIN)
             )
         except Exception as e:
-            print(f"⚠️ R5py Error: {e}")
+            print(f"R5py Error: {e}")
             return path_map
 
         if computer is None or computer.empty: return path_map
@@ -416,33 +422,35 @@ class RouteOptimizerService:
             for _, leg in df.iterrows():
                 raw_mode = str(leg[mode_col]).upper()
                 
-                # [수정] 시간 계산 시 올림 적용 & 최소 1분 보장
+                # 시간 및 대기 시간 계산 (기존 로직 유지)
                 dur_val = get_val(leg, ['travel_time', 'duration'], 0)
-                ride_time = get_minutes_ceil(dur_val)
-                ride_time = max(1, ride_time) # 0분 방지 (최소 1분)
+                ride_time = max(1, get_minutes_ceil(dur_val))
                 
                 wait_val = get_val(leg, ['wait_time', 'wait'], 0)
                 wait_time = get_minutes_ceil(wait_val)
-                # 대기 시간은 0일 수도 있으나, 값이 존재한다면 최소 1분으로 표기
                 if wait_time == 0 and pd.to_timedelta(wait_val).total_seconds() > 0:
                     wait_time = 1
 
                 f_id = str(get_val(leg, ['from_stop_id', 'start_stop_id'])).strip()
-                t_id = str(get_val(leg, ['to_stop_id', 'end_stop_id'])).strip()
 
                 if wait_time > 0:
                     segs.append(f"대기 : {wait_time}분 [STOP:{f_id}]")
 
+                # --- [수정 구간] 모드별 텍스트 처리 ---
+                if 'CAR' in raw_mode:
+                    segs.append(f"승용차 이동 : {ride_time}분")
+                    continue  # 차량은 아래 정류장/노선 이름 찾기 로직이 필요 없음
+                    
                 if 'WALK' in raw_mode:
                     segs.append(f"도보 : {ride_time}분")
                     continue
 
+                # 대중교통 정보 추출 (기존 로직)
                 f_name = self.stop_id_to_name.get(f_id, "정류장")
+                t_id = str(get_val(leg, ['to_stop_id', 'end_stop_id'])).strip()
                 t_name = self.stop_id_to_name.get(t_id, "정류장")
-                
                 route_id = str(get_val(leg, ['route_id']))
                 route_name = self.route_id_to_name.get(route_id, "대중교통")
-                
                 mode_nm = "지하철" if any(x in raw_mode for x in ['SUBWAY', 'RAIL', 'METRO']) else "버스"
                 
                 segs.append(f"[{mode_nm}][{route_name}] : {f_name} → {t_name} : {ride_time}분")
@@ -589,7 +597,7 @@ class RouteOptimizerService:
 
     # ========== 타임라인 빌더 ==========
     
-    def _build_timeline_by_type(self, visited_nodes, path_map, display_start_dt, target_date_str, path_type):
+    def _build_timeline_by_type(self, visited_nodes, path_map, display_start_dt, target_date_str, path_type, transport_mode="transport"):
         """
         타임라인 생성
         1. 첫 번째 장소: 이동 없이 사용자 설정 시간에 즉시 시작
@@ -598,8 +606,7 @@ class RouteOptimizerService:
         timeline = []
         
         # visited_nodes[0]은 Depot(가상 시작점)이므로 최소 2개(Depot + 첫장소)는 있어야 함
-        if len(visited_nodes) < 2:
-            return []
+        if len(visited_nodes) < 2: return []
 
         # 시간 커서 초기화 (사용자가 설정한 그 시간, 예: 10:00)
         cursor_dt = display_start_dt
@@ -626,7 +633,8 @@ class RouteOptimizerService:
                 path_options = path_map.get((prev['id'], node['id']))
                 
                 if path_options:
-                    chosen_path = path_options.get(path_type, path_options.get('fastest', []))
+                    effective_type = 'fastest' if transport_mode == "car" else path_type
+                    chosen_path = path_options.get(effective_type, path_options.get('fastest', []))
                     
                     for segment in chosen_path:
                         seg_mins = sum(int(m) for m in re.findall(r'(\d+)분', segment))
@@ -746,8 +754,8 @@ class RouteOptimizerService:
 
     # ========== OR-Tools 최적화 ==========
     
-    def _optimize_day(self, places, restaurants, fixed_events, start_time_str, target_date_str, end_time_str=None):
-        """단일 일자 경로 최적화"""
+    def _optimize_day(self, places, restaurants, fixed_events, start_time_str, target_date_str, end_time_str=None, transport_mode="transport"):
+        """단일 일자 경로 최적화 (transport_mode 추가됨)"""
         day_start_dt = datetime.strptime(start_time_str, "%H:%M")
         
         r5_dep_dt = datetime.combine(datetime.strptime(target_date_str, "%Y-%m-%d"), datetime.strptime("11:00", "%H:%M").time())
@@ -765,20 +773,18 @@ class RouteOptimizerService:
             node["id"] = int(idx)
         n = len(nodes)
 
-        # r5py 이동 시간 행렬
-        r5_travel_times = self._get_r5py_matrix(nodes, r5_dep_dt)
+        # [수정 1] r5py 이동 시간 행렬 (모드 전달)
+        r5_travel_times = self._get_r5py_matrix(nodes, r5_dep_dt, transport_mode=transport_mode)
         
-        # 시간 행렬 구성
+        # 시간 행렬 구성 (기존 로직 동일)
         time_matrix = [[0]*n for _ in range(n)]
         for i in range(n):
             for j in range(n):
                 if i == j: continue
                 val = r5_travel_times.get((i, j))
                 if val is None:
-                    # r5 실패 시 거리 기반 폴백 사용
                     val = self._travel_minutes(nodes[i], nodes[j])
                 
-                # 고정일정 이동시간 보정
                 if nodes[i]["type"] == "fixed" or nodes[j]["type"] == "fixed":
                     if not (nodes[i]["type"] == "depot" and nodes[j]["type"] == "fixed"):
                         val = max(val, 30)
@@ -825,7 +831,7 @@ class RouteOptimizerService:
         solution = routing.SolveWithParameters(search_params)
         
         if not solution:
-            print("⚠️ OR-Tools 최적화 실패")
+            print("OR-Tools 최적화 실패")
             return {"fastest_version": [], "min_transfer_version": []}
 
         # 방문 순서 추출
@@ -840,15 +846,22 @@ class RouteOptimizerService:
         # 상세 경로 계산
         trip_legs = [(visited_nodes[i], visited_nodes[i+1]) for i in range(len(visited_nodes)-1)]
         
-        print("🚀 상세 경로 계산 중...")
+        print("상세 경로 계산 중...")
         start_path_time = time.time()
-        path_map = self._get_all_detailed_paths(trip_legs, r5_dep_dt)
-        print(f"⏱ 상세 경로 계산 완료: {round(time.time() - start_path_time, 2)}초")
 
-        return {
-            "fastest_version": self._build_timeline_by_type(visited_nodes, path_map, display_start_dt, target_date_str, "fastest"),
-            "min_transfer_version": self._build_timeline_by_type(visited_nodes, path_map, display_start_dt, target_date_str, "min_transfer")
-        }
+        path_map = self._get_all_detailed_paths(trip_legs, r5_dep_dt, transport_mode=transport_mode)
+
+        print(f"상세 경로 계산 완료: {round(time.time() - start_path_time, 2)}초")
+
+        if transport_mode == "car":
+            return {
+                "car_version": self._build_timeline_by_type(visited_nodes, path_map, display_start_dt, target_date_str, "fastest", transport_mode="car")
+            }
+        else:
+            return {
+                "fastest_version": self._build_timeline_by_type(visited_nodes, path_map, display_start_dt, target_date_str, "fastest"),
+                "min_transfer_version": self._build_timeline_by_type(visited_nodes, path_map, display_start_dt, target_date_str, "min_transfer")
+            }
 
     # ========== Gemini AI 추천 ==========
     
@@ -865,14 +878,14 @@ class RouteOptimizerService:
 
     def _get_gemini_recommendation(self, days, places, restaurants, accommodations):
         if os.path.exists(RESULT_JSON_PATH):
-            print("📂 result.json 발견 → Gemini 호출 생략")
+            print("result.json 발견 → Gemini 호출 생략")
             try:
                 with open(RESULT_JSON_PATH, "r", encoding="utf-8") as f:
                     return json.load(f), 0
             except: pass
         
         if not self.api_key:
-            print("⚠️ Google API Key 없음")
+            print("Google API Key 없음")
             return None, 0
         
         client = genai.Client(api_key=self.api_key)
@@ -906,7 +919,7 @@ class RouteOptimizerService:
         }
         
         try:
-            print("🤖 Gemini가 초기 계획을 생성하고 있습니다...")
+            print("Gemini가 초기 계획을 생성하고 있습니다...")
             prompt = system_prompt + "\n\n" + json.dumps(user_prompt, ensure_ascii=False)
             response = client.models.generate_content(
                 model="gemini-2.5-flash-lite", contents=prompt, config={"temperature": 0}
@@ -916,9 +929,9 @@ class RouteOptimizerService:
             with open(RESULT_JSON_PATH, "w", encoding="utf-8") as f:
                 json.dump(plan, f, ensure_ascii=False, indent=2)
             
-            return plan
+            return plan, 0
         except Exception as e:
-            print(f"⚠️ Gemini API 오류: {e}")
+            print(f"Gemini API 오류: {e}")
             return None, 0
 
     # ========== 메인 API: generate_plan ==========
@@ -949,6 +962,8 @@ class RouteOptimizerService:
             ['name', 'lat', 'lng', 'category', 'category2']
         ]
         places = filtered_spot.to_dict(orient='records')
+
+        print(f"{request.region} 중심 반경 {RADIUS_KM}km내 장소 개수 {len(places)}개")
         
         avg_lat = filtered_spot['lat'].mean() if len(filtered_spot) > 0 else center['lat']
         avg_lng = filtered_spot['lng'].mean() if len(filtered_spot) > 0 else center['lon']
@@ -956,25 +971,28 @@ class RouteOptimizerService:
         df['dist_to_center'] = df.apply(
             lambda r: self._haversine(avg_lat, avg_lng, r['lat'], r['lng']), axis=1
         )
-        filtered_restaurant = df[(df['dist_to_center'] <= 3) & (df['category'] == '음식점')][
+        filtered_restaurant = df[(df['dist_to_center'] <= 4) & (df['category'] == '음식점')][
             ['name', 'lat', 'lng', 'category', 'category2']
         ]
         restaurants = filtered_restaurant.to_dict(orient='records')
+
+        print(f"필터링된 장소의 중심 반경 4km내 음식점 개수 {len(restaurants)}개")
         
         filtered_accom = df[dist_mask & (df['category'] == '숙박')][
             ['name', 'lat', 'lng', 'category', 'category2']
         ]
         accommodations = filtered_accom.to_dict(orient='records')
 
+        print(f"{request.region} 중심 반경 {RADIUS_KM}km내 숙소 개수 {len(accommodations)}개")
+
         start_dt = datetime.strptime(request.start_date, '%Y-%m-%d')
         end_dt = datetime.strptime(request.end_date, '%Y-%m-%d')
         days = (end_dt - start_dt).days + 1
-        print(f"📅 총 여행 일수: {days}일")
+        print(f"총 여행 일수: {days}일")
 
         # 4. Gemini AI 추천 호출
         start_gemini = time.time()
         
-        # [수정된 부분] 반환값을 변수 2개로 나누어 받습니다 (Unpacking)
         # gemini_plan: 계획 데이터(Dict), _: 소요시간(사용 안함)
         gemini_plan, _ = self._get_gemini_recommendation(days, places, restaurants, accommodations)
         
@@ -987,7 +1005,7 @@ class RouteOptimizerService:
         plans = gemini_plan['plans']
         day_keys = list(plans.keys())
         
-        print(f"\n🚀 병렬 최적화 시작: {len(day_keys)}일치 일정 계산")
+        print(f"\n 병렬 최적화 시작: {len(day_keys)}일치 일정 계산 (Mode: {request.transport_mode})")
         start_total_opt = time.time()
 
         def process_day_wrapper(args):
@@ -1004,7 +1022,8 @@ class RouteOptimizerService:
                 fixed_events=day_fixed,
                 start_time_str=todays_start,
                 target_date_str=current_date_str,
-                end_time_str=todays_end
+                end_time_str=todays_end,
+                transport_mode=request.transport_mode  # 모드 전달
             )
             return day_key, day_res
 
@@ -1023,7 +1042,7 @@ class RouteOptimizerService:
                 processed_results[day_key] = day_res
 
         opt_duration = round(time.time() - start_total_opt, 2)
-        print(f"⏱ 전체 최적화 완료: {opt_duration}초")
+        print(f"전체 최적화 완료: {opt_duration}초")
 
         # 6. 결과 취합
         final_result = {}
