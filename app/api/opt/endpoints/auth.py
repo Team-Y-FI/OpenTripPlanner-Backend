@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.services.auth_service import AuthService
+from app.core.config import settings
 
 router = APIRouter(tags=["auth"])
 
@@ -65,9 +66,10 @@ async def login(body: LoginIn, response: Response, db: AsyncSession = Depends(ge
         key=REFRESH_COOKIE_NAME,
         value=tokens["refresh_token"],
         httponly=True,
-        secure=False,
-        samesite="lax",
+        secure=True,
+        samesite="none",
         path="/",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
     return {"access_token": tokens["access_token"]}
 
@@ -85,9 +87,10 @@ async def refresh(request: Request, response: Response, db: AsyncSession = Depen
         key=REFRESH_COOKIE_NAME,
         value=tokens["refresh_token"],
         httponly=True,
-        secure=False,
-        samesite="lax",
+        secure=True,
+        samesite="none",
         path="/",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
     return {"access_token": tokens["access_token"]}
 
