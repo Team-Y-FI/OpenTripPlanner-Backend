@@ -98,7 +98,7 @@ async def get_current_user(
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    user = await UserRepo(db).get_by_id(str(sub))  # ✅ user_id는 문자열
+    user = await UserRepo(db).get_by_user_id(str(sub))  # ✅ user_id는 문자열
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     return user
