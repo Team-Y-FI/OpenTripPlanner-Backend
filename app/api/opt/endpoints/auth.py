@@ -1,112 +1,103 @@
-# app/api/opt/endpoints/auth.py
-from fastapi import APIRouter, Depends, Request, Response, HTTPException
+# app/api/endpoints/auth.py
+from fastapi import APIRouter, Depends, HTTPException, Response, Request
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.core.state import verif_store
 from app.services.auth_service import AuthService
 
-from app.schemas.auth import (
-    SendVerificationRequest,
-    VerifyCodeRequest,
-    RegisterRequest,
-    LoginRequest,
-)
-
-router = APIRouter(tags=["Auth"])
+router = APIRouter(tags=["auth"])
 
 REFRESH_COOKIE_NAME = "refresh_token"
-REFRESH_MAX_AGE = 14 * 24 * 60 * 60
-COOKIE_SECURE = False
-COOKIE_SAMESITE = "lax"
 
 
-def _set_refresh_cookie(resp: Response, refresh_token: str):
-    resp.set_cookie(
-        key=REFRESH_COOKIE_NAME,
-        value=refresh_token,
-        httponly=True,
-        secure=COOKIE_SECURE,
-        samesite=COOKIE_SAMESITE,
-        max_age=REFRESH_MAX_AGE,
-        path="/",
-    )
+class SendVerificationIn(BaseModel):
+    email: EmailStr
 
 
-def _clear_refresh_cookie(resp: Response):
-    resp.delete_cookie(key=REFRESH_COOKIE_NAME, path="/")
+class VerifyCodeIn(BaseModel):
+    email: EmailStr
+    code: str
+
+
+class RegisterIn(BaseModel):
+    # ✅ user_id를 직접 입력받아 저장 (명세 반영)
+    user_id: str = Field(min_length=1, max_length=64)
+
+    email: EmailStr
+    password: str
+    name: str
+
+
+class LoginIn(BaseModel):
+    email: EmailStr
+    password: str
 
 
 @router.post("/send-verification")
-async def send_verification(body: SendVerificationRequest, db: AsyncSession = Depends(get_db)):
-    svc = AuthService(db, verif_store)
-    return await svc.send_verification(email=str(body.email))
+async def send_verification(body: SendVerificationIn, db: AsyncSession = Depends(get_db)):
+    svc = AuthService(db)
+    await svc.send_verification(email=str(body.email))
+    return {"message": "인증코드가 발송되었습니다. (콘솔 출력/가상 발송)"}
 
 
 @router.post("/verify-code")
-async def verify_code(body: VerifyCodeRequest, db: AsyncSession = Depends(get_db)):
-    svc = AuthService(db, verif_store)
-    return await svc.verify_code(email=str(body.email), code=body.code)
+async def verify_code(body: VerifyCodeIn, db: AsyncSession = Depends(get_db)):
+    svc = AuthService(db)
+    await svc.verify_code(email=str(body.email), code=body.code)
+    return {"message": "인증되었습니다."}
 
 
 @router.post("/register")
-async def register(body: RegisterRequest, response: Response, db: AsyncSession = Depends(get_db)):
-    svc = AuthService(db, verif_store)
-    user, access_token, refresh_token = await svc.register(
-        name=getattr(body, "name", None),
-        email=str(body.email),
-        password=body.password,
-        phone_number=getattr(body, "phone_number", None),
-    )
-
-    _set_refresh_cookie(response, refresh_token)
-    return {
-        "user": {
-            "user_id": str(user.user_id),
-            "email": user.email,
-            "name": getattr(user, "name", None),
-            "phone_number": getattr(user, "phone_number", None),
-        },
-        "tokens": {"access_token": access_token, "token_type": "bearer"},
-    }
+async def register(body: RegisterIn, db: AsyncSession = Depends(get_db)):
+    svc = AuthService(db)
+    # ✅ user_id 전달
+    await svc.register(user_id=body.user_id, email=str(body.email), password=body.password, name=body.name)
+    return {"message": "회원가입이 완료되었습니다."}
 
 
 @router.post("/login")
-async def login(body: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
-    svc = AuthService(db, verif_store)
-    user, access_token, refresh_token = await svc.login(email=str(body.email), password=body.password)
+async def login(body: LoginIn, response: Response, db: AsyncSession = Depends(get_db)):
+    svc = AuthService(db)
+    tokens = await svc.login(email=str(body.email), password=body.password)
 
-    _set_refresh_cookie(response, refresh_token)
-    return {
-        "user": {
-            "user_id": str(user.user_id),
-            "email": user.email,
-            "name": getattr(user, "name", None),
-            "phone_number": getattr(user, "phone_number", None),
-        },
-        "tokens": {"access_token": access_token, "token_type": "bearer"},
-    }
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=tokens["refresh_token"],
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        path="/",
+    )
+    return {"access_token": tokens["access_token"]}
 
 
 @router.post("/refresh")
 async def refresh(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
     if not refresh_token:
-        raise HTTPException(status_code=401, detail="Missing refresh token cookie")
+        raise HTTPException(status_code=401, detail="Refresh Token 쿠키가 없습니다.")
 
-    svc = AuthService(db, verif_store)
-    new_access, new_refresh = await svc.refresh(refresh_token=refresh_token)
+    svc = AuthService(db)
+    tokens = await svc.refresh(refresh_token=refresh_token)
 
-    _set_refresh_cookie(response, new_refresh)
-    return {"tokens": {"access_token": new_access, "token_type": "bearer"}}
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=tokens["refresh_token"],
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        path="/",
+    )
+    return {"access_token": tokens["access_token"]}
 
 
 @router.post("/logout")
 async def logout(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
     if refresh_token:
-        svc = AuthService(db, verif_store)
+        svc = AuthService(db)
         await svc.logout(refresh_token=refresh_token)
 
-    _clear_refresh_cookie(response)
-    return {"message": "Logged out"}
+    response.delete_cookie(key=REFRESH_COOKIE_NAME, path="/")
+    return {"message": "로그아웃 되었습니다."}

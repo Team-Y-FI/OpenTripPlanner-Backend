@@ -1,87 +1,36 @@
-# app/services/verification_store.py
-import secrets
-import datetime as dt
-import hmac
+# app/services/verification_store.py (Redis 완전 비활성화 버전)
 
-from app.core.config import settings
-from app.repositories.email_verification_repo import EmailVerificationRepository
+from __future__ import annotations
+from datetime import datetime, timedelta, timezone
+from sqlalchemy.ext.asyncio import AsyncSession
 
-try:
-    import redis.asyncio as redis
-except Exception:
-    redis = None
+from app.core.security import generate_otp_code, hash_otp_code
+from app.repositories.email_verification_repo import EmailVerificationRepo
 
 
 class VerificationStore:
-    def __init__(self):
-        self.redis = None
+    def __init__(self, db: AsyncSession):
+        self.db = db
+        self.repo = EmailVerificationRepo(db)
 
-    async def init(self) -> None:
-        redis_url = getattr(settings, "REDIS_URL", None)
-        if redis_url and redis is not None:
-            try:
-                self.redis = redis.from_url(redis_url)
-                await self.redis.ping()
-            except Exception:
-                self.redis = None
+    async def _get_redis(self):
+        # ✅ Redis 완전 미사용
+        return None
 
-    @staticmethod
-    def _code_key(email: str) -> str:
-        return f"verify:code:{email.lower()}"
+    async def create_code(self, email: str, ttl_seconds: int = 300) -> str:
+        code = generate_otp_code()
+        code_hash = hash_otp_code(code)
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)
+        await self.repo.upsert_code(email=email, code_hash=code_hash, expires_at=expires_at)
+        print(f"[OTP] email={email} code={code}")
+        return code
 
-    @staticmethod
-    def _ok_key(email: str) -> str:
-        return f"verify:ok:{email.lower()}"
+    async def verify_code(self, email: str, code: str) -> bool:
+        code_hash = hash_otp_code(code)
+        return await self.repo.verify_code(email=email, code_hash=code_hash)
 
-    def generate_code(self) -> str:
-        return f"{secrets.randbelow(10**6):06d}"
+    async def is_verified(self, email: str) -> bool:
+        return await self.repo.is_verified(email=email)
 
-    async def set_code(self, *, db, email: str, code: str, ttl_seconds: int = 300) -> None:
-        email_l = email.lower()
-        expires_at = dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=ttl_seconds)
-
-        if self.redis:
-            await self.redis.set(self._code_key(email_l), code, ex=ttl_seconds)
-            await self.redis.delete(self._ok_key(email_l))
-            return
-
-        await EmailVerificationRepository(db).upsert_code(email=email_l, code=code, expires_at=expires_at)
-
-    async def verify_code(self, *, db, email: str, code: str) -> bool:
-        email_l = email.lower()
-
-        if self.redis:
-            saved = await self.redis.get(self._code_key(email_l))
-            if not saved:
-                return False
-            saved_str = saved.decode() if isinstance(saved, (bytes, bytearray)) else str(saved)
-            if not hmac.compare_digest(saved_str, code):
-                return False
-
-            # ✅ 인증 성공 → ok flag 1시간 유지
-            await self.redis.set(self._ok_key(email_l), "1", ex=3600)
-            await self.redis.delete(self._code_key(email_l))
-            return True
-
-        now = dt.datetime.now(dt.timezone.utc)
-        return await EmailVerificationRepository(db).verify_code(email=email_l, code=code, now=now)
-
-    async def is_verified(self, *, db, email: str) -> bool:
-        email_l = email.lower()
-
-        if self.redis:
-            ok = await self.redis.get(self._ok_key(email_l))
-            return bool(ok)
-
-        now = dt.datetime.now(dt.timezone.utc)
-        return await EmailVerificationRepository(db).is_verified(email=email_l, now=now)
-
-    async def clear(self, *, db, email: str) -> None:
-        email_l = email.lower()
-
-        if self.redis:
-            await self.redis.delete(self._code_key(email_l))
-            await self.redis.delete(self._ok_key(email_l))
-            return
-
-        await EmailVerificationRepository(db).clear(email=email_l)
+    async def clear_verified(self, email: str) -> None:
+        await self.repo.clear(email=email)

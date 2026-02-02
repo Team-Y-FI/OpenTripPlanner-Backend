@@ -1,146 +1,162 @@
 # app/services/auth_service.py
-import re
-import hashlib
-from datetime import datetime, timedelta, timezone
+from __future__ import annotations
 
-from fastapi import HTTPException
+from datetime import datetime, timezone
 
+from fastapi import HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories.user_repo import UserRepository
-from app.repositories.token_repo import RefreshTokenRepository
-from app.repositories.token_repo import hash_refresh
-from app.services.verification_store import VerificationStore
-
+from app.core.config import settings
 from app.core.security import (
-    hash_password,
-    verify_password,
     create_access_token,
     create_refresh_token,
-    decode_refresh_token,
+    hash_refresh_token,
+    verify_password,
+    get_password_hash,
 )
-
-
-PASSWORD_RE = re.compile(r"^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$")
-
-ACCESS_MINUTES = 30
-REFRESH_DAYS = 14
+from app.repositories.user_repo import UserRepo
+from app.repositories.token_repo import TokenRepository
+from app.services.verification_store import VerificationStore
 
 
 class AuthService:
-    def __init__(self, db: AsyncSession, verif_store: VerificationStore):
+    def __init__(self, db: AsyncSession):
         self.db = db
-        self.users = UserRepository(db)
-        self.tokens = RefreshTokenRepository(db)
-        self.verif = verif_store
+        self.users = UserRepo(db)
+        self.tokens = TokenRepository(db)
+        self.verification_store = VerificationStore(db)
 
-    # 1) 이메일 인증 발송
-    async def send_verification(self, *, email: str) -> dict:
-        if await self.users.exists_email(email):  # ✅ get_by_email 대신 exists
-            raise HTTPException(status_code=400, detail="Email already registered")
+    async def send_verification(self, email: str) -> dict:
+        if await self.users.get_by_email(email):
+            raise HTTPException(status_code=400, detail="이미 가입된 이메일입니다.")
 
-        code = self.verif.generate_code()
-        await self.verif.set_code(db=self.db, email=email, code=code, ttl_seconds=300)
-        print(f"[VERIFICATION] email={email} code={code} (expires in 5 minutes)")
-        return {"message": "Verification code sent (simulated)."}
+        await self.verification_store.create_code(email=email, ttl_seconds=300)
+        return {"message": "인증코드를 전송했습니다."}
 
-    # 1) 이메일 인증 검증
-    async def verify_code(self, *, email: str, code: str) -> dict:
-        ok = await self.verif.verify_code(db=self.db, email=email, code=code)
+    async def verify_code(self, email: str, code: str) -> dict:
+        ok = await self.verification_store.verify_code(email=email, code=code)
         if not ok:
-            raise HTTPException(status_code=400, detail="Invalid or expired verification code")
-        return {"verified": True, "message": "Email verified."}
+            raise HTTPException(status_code=400, detail="인증코드가 올바르지 않거나 만료되었습니다.")
+        return {"message": "인증되었습니다."}
 
-    # 2) 회원가입(이메일 인증 필수)
-    async def register(self, *, name: str | None, email: str, password: str, phone_number: str | None = None):
-        verified = await self.verif.is_verified(db=self.db, email=email)
+    # ✅ user_id 직접 입력 반영
+    async def register(self, *, user_id: str, email: str, password: str, name: str) -> dict:
+        verified = await self.verification_store.is_verified(email=email)
         if not verified:
-            raise HTTPException(status_code=400, detail="Email verification required")
+            raise HTTPException(status_code=400, detail="이메일 인증이 필요합니다.")
 
         if await self.users.get_by_email(email):
-            raise HTTPException(status_code=400, detail="Email already registered")
+            raise HTTPException(status_code=400, detail="이미 가입된 이메일입니다.")
 
-        if not PASSWORD_RE.match(password or ""):
-            raise HTTPException(
-                status_code=400,
-                detail="Password must be >=8 chars and include letter/number/special at least once each",
+        # ✅ user_id 중복 체크(명세상 식별자이므로 필요)
+        if hasattr(self.users, "get_by_user_id"):
+            if await self.users.get_by_user_id(user_id):
+                raise HTTPException(status_code=400, detail="이미 사용 중인 user_id 입니다.")
+
+        password_hash = get_password_hash(password)
+
+        # ✅ create에 user_id 전달
+        await self.users.create(user_id=user_id, email=email, name=name, password_hash=password_hash)
+
+        await self.verification_store.clear_verified(email=email)
+        return {"message": "회원가입이 완료되었습니다."}
+
+    async def login(self, *, email: str, password: str, response: Response | None = None) -> dict:
+        user = await self.users.get_by_email(email)
+        if not user or not verify_password(password, user.password_hash):
+            raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다.")
+
+        access_token = create_access_token(
+            subject=str(user.user_id),
+            expires_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+        )
+
+        refresh_token, _exp_dt = create_refresh_token(
+            subject=str(user.user_id),
+            expires_days=settings.REFRESH_TOKEN_EXPIRE_DAYS,
+        )
+
+        token_hash = hash_refresh_token(refresh_token)
+        await self.tokens.issue(
+            user_id=user.user_id,
+            token_hash=token_hash,
+            expires_days=settings.REFRESH_TOKEN_EXPIRE_DAYS,
+        )
+
+        if response is not None:
+            response.set_cookie(
+                key="refresh_token",
+                value=refresh_token,
+                httponly=True,
+                secure=False,
+                samesite="lax",
+                max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
             )
 
-        pw_hash = hash_password(password)
+        return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
-        # User 모델에 phone_number 컬럼이 있어야 함(없으면 모델에 추가 필요)
-        from app.models.user import User
-        user = User(
-            email=email.lower(),
-            password_hash=pw_hash,
-            name=name,
-            phone_number=phone_number,
-        )
-        user = await self.users.create(user)
+    @staticmethod
+    def _as_aware_utc(dt: datetime) -> datetime:
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
 
-        # 인증 상태 제거(재사용 방지)
-        await self.verif.clear(db=self.db, email=email)
-
-        access = create_access_token(str(user.user_id), expires_minutes=ACCESS_MINUTES)
-
-        refresh_token, refresh_exp = create_refresh_token(str(user.user_id))  # type=refresh 포함
-        refresh_hash = hash_refresh(refresh_token)
-        await self.tokens.create_hash(str(user.user_id), refresh_hash, refresh_exp)
-
-        return user, access, refresh_token
-
-    # 3) 로그인
-    async def login(self, *, email: str, password: str):
-        user = await self.users.get_by_email(email)
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid email or password")
-
-        if not verify_password(password, user.password_hash):
-            raise HTTPException(status_code=401, detail="Invalid email or password")
-
-        access = create_access_token(str(user.user_id), expires_minutes=ACCESS_MINUTES)
-
-        refresh_token, refresh_exp = create_refresh_token(str(user.user_id))
-        refresh_hash = hash_refresh(refresh_token)
-        await self.tokens.create_hash(str(user.user_id), refresh_hash, refresh_exp)
-
-        return user, access, refresh_token
-
-    # 4) 토큰 재발급(RTR + reuse detection)
-    async def refresh(self, *, refresh_token: str):
-        # refresh 전용 타입 체크(잘못된 토큰이면 401)
-        payload = decode_refresh_token(refresh_token)  # :contentReference[oaicite:1]{index=1}
-        user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid refresh token")
-
-        token_hash = hash_refresh(refresh_token)
+    async def refresh(self, *, refresh_token: str, response: Response | None = None) -> dict:
+        token_hash = hash_refresh_token(refresh_token)
         row = await self.tokens.get_by_hash(token_hash)
+
         if not row:
-            raise HTTPException(status_code=401, detail="Invalid refresh token")
+            raise HTTPException(status_code=401, detail="Refresh token이 유효하지 않습니다.")
+
+        if row.revoked:
+            await self.tokens.revoke_all(user_id=row.user_id)
+            raise HTTPException(status_code=401, detail="토큰 재사용이 감지되어 강제 로그아웃 처리되었습니다.")
 
         now = datetime.now(timezone.utc)
-        if row.expires_at <= now:
-            await self.tokens.revoke_by_hash(token_hash)
+        exp = self._as_aware_utc(row.expires_at)
+        if exp <= now:
+            await self.tokens.revoke(token_id=row.token_id)
             raise HTTPException(status_code=401, detail="Refresh token expired")
 
-        # Reuse Detection
-        if row.revoked:
-            await self.tokens.delete_all_for_user(str(row.user_id))
-            raise HTTPException(status_code=401, detail="Refresh token reuse detected. Logged out.")
+        await self.tokens.revoke(token_id=row.token_id)
 
-        # 정상 토큰이면 revoke 처리 후 새 토큰 발급/저장
-        await self.tokens.revoke_by_hash(token_hash)
+        access_token = create_access_token(
+            subject=str(row.user_id),
+            expires_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+        )
 
-        new_access = create_access_token(str(row.user_id), expires_minutes=ACCESS_MINUTES)
+        new_refresh_token, _new_exp_dt = create_refresh_token(
+            subject=str(row.user_id),
+            expires_days=settings.REFRESH_TOKEN_EXPIRE_DAYS,
+        )
 
-        new_refresh, new_exp = create_refresh_token(str(row.user_id))
-        new_hash = hash_refresh(new_refresh)
-        await self.tokens.create_hash(str(row.user_id), new_hash, new_exp)
+        new_hash = hash_refresh_token(new_refresh_token)
+        await self.tokens.issue(
+            user_id=row.user_id,
+            token_hash=new_hash,
+            expires_days=settings.REFRESH_TOKEN_EXPIRE_DAYS,
+        )
 
-        return new_access, new_refresh
+        if response is not None:
+            response.set_cookie(
+                key="refresh_token",
+                value=new_refresh_token,
+                httponly=True,
+                secure=False,
+                samesite="lax",
+                max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+            )
 
-    # 5) 로그아웃
-    async def logout(self, *, refresh_token: str) -> None:
-        token_hash = hash_refresh(refresh_token)
-        await self.tokens.revoke_by_hash(token_hash)
+        return {"access_token": access_token, "refresh_token": new_refresh_token, "token_type": "bearer"}
+
+    async def logout(self, *, refresh_token: str | None, response: Response | None = None) -> dict:
+        if refresh_token:
+            token_hash = hash_refresh_token(refresh_token)
+            row = await self.tokens.get_by_hash(token_hash)
+            if row:
+                await self.tokens.revoke(token_id=row.token_id)
+
+        if response is not None:
+            response.delete_cookie("refresh_token")
+
+        return {"message": "로그아웃 되었습니다."}
