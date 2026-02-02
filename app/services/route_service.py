@@ -444,7 +444,7 @@ class RouteOptimizerService:
                             clean_seg = segment
                             if added > 0: 
                                 icon = ICONS.get(origin_traffic_lvl, "")
-                                clean_seg = re.sub(r'\d+분', f'{final_seg}분', segment) + f" [⏳{icon}대기지연 +{added}분]"
+                                clean_seg = re.sub(r'\d+분', f'{final_seg}분', segment) + f" [{icon}대기지연 +{added}분]"
                             transit_info.append(clean_seg)
                             travel_min += final_seg
                         
@@ -462,7 +462,7 @@ class RouteOptimizerService:
                             if added > 0:
                                 status_text = {1: "서행", 2: "정체"}.get(dest_traffic_lvl, "지체")
                                 icon = ICONS.get(dest_traffic_lvl, "")
-                                clean_seg = re.sub(r'\d+분', f'{final_seg}분', segment) + f" [🚗{icon}{status_text} +{added}분]"
+                                clean_seg = re.sub(r'\d+분', f'{final_seg}분', segment) + f" [{icon}{status_text} +{added}분]"
                             transit_info.append(clean_seg)
                             travel_min += final_seg
                         
