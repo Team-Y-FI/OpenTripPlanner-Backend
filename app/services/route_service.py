@@ -276,11 +276,10 @@ class RouteOptimizerService:
 
     # ========== R5PY 경로 계산 ==========
     
-    def _get_r5py_matrix(self, nodes, departure_time):
+    def _get_r5py_matrix(self, nodes, departure_time, transport_mode="transport"):
         """r5py 이동 시간 행렬 계산 (안전한 노드 필터링 적용)"""
         valid_nodes = [n for n in nodes if n.get('lat') is not None]
-        if len(valid_nodes) < 2:
-            return {}
+        if len(valid_nodes) < 2: return {}
 
         gdf = gpd.GeoDataFrame(
             valid_nodes,
@@ -291,13 +290,16 @@ class RouteOptimizerService:
             crs='EPSG:4326'
         )
 
+        # 모드 설정
+        modes = [TransportMode.CAR] if transport_mode == "car" else [TransportMode.WALK, TransportMode.TRANSIT]
+
         try:
             matrix = TravelTimeMatrix(
                 self.transport_network,
                 origins=gdf,
                 destinations=gdf,
                 departure=departure_time,
-                transport_modes=[TransportMode.WALK, TransportMode.TRANSIT]
+                transport_modes=modes
             )
             
             r5_travel_times = {}
@@ -325,7 +327,7 @@ class RouteOptimizerService:
         # 키: (출발이름, 출발위도, 출발경도, 도착이름, 도착위도, 도착경도, 시간)
         return (s_name, s_lat, s_lng, e_name, e_lat, e_lng, departure_time.hour)
     
-    def _get_all_detailed_paths(self, trip_legs, departure_time):
+    def _get_all_detailed_paths(self, trip_legs, departure_time, transport_mode="transport"):
         """
         상세 경로 계산 (수정됨: 시간 계산 시 올림(ceil) 처리로 0분 방지)
         """
@@ -374,14 +376,18 @@ class RouteOptimizerService:
         )
         dgdf['id'] = [n['id'] for n in dests_list]
 
+        # 모드 설정
+        modes = [TransportMode.CAR] if transport_mode == "car" else [TransportMode.WALK, TransportMode.TRANSIT]
+        max_rides = 0 if transport_mode == "car" else MAX_TRANSFERS
+
         try:
             computer = DetailedItineraries(
                 self.transport_network, 
                 origins=ogdf, 
                 destinations=dgdf, 
                 departure=departure_time,
-                transport_modes=[TransportMode.WALK, TransportMode.TRANSIT],
-                max_public_transport_rides=MAX_TRANSFERS, 
+                transport_modes=modes,
+                max_public_transport_rides=max_rides, 
                 max_time=timedelta(minutes=MAX_TRAVEL_TIME_MIN)
             )
         except Exception as e:
@@ -416,33 +422,35 @@ class RouteOptimizerService:
             for _, leg in df.iterrows():
                 raw_mode = str(leg[mode_col]).upper()
                 
-                # [수정] 시간 계산 시 올림 적용 & 최소 1분 보장
+                # 시간 및 대기 시간 계산 (기존 로직 유지)
                 dur_val = get_val(leg, ['travel_time', 'duration'], 0)
-                ride_time = get_minutes_ceil(dur_val)
-                ride_time = max(1, ride_time) # 0분 방지 (최소 1분)
+                ride_time = max(1, get_minutes_ceil(dur_val))
                 
                 wait_val = get_val(leg, ['wait_time', 'wait'], 0)
                 wait_time = get_minutes_ceil(wait_val)
-                # 대기 시간은 0일 수도 있으나, 값이 존재한다면 최소 1분으로 표기
                 if wait_time == 0 and pd.to_timedelta(wait_val).total_seconds() > 0:
                     wait_time = 1
 
                 f_id = str(get_val(leg, ['from_stop_id', 'start_stop_id'])).strip()
-                t_id = str(get_val(leg, ['to_stop_id', 'end_stop_id'])).strip()
 
                 if wait_time > 0:
                     segs.append(f"대기 : {wait_time}분 [STOP:{f_id}]")
 
+                # --- [수정 구간] 모드별 텍스트 처리 ---
+                if 'CAR' in raw_mode:
+                    segs.append(f"승용차 이동 : {ride_time}분")
+                    continue  # 차량은 아래 정류장/노선 이름 찾기 로직이 필요 없음
+                    
                 if 'WALK' in raw_mode:
                     segs.append(f"도보 : {ride_time}분")
                     continue
 
+                # 대중교통 정보 추출 (기존 로직)
                 f_name = self.stop_id_to_name.get(f_id, "정류장")
+                t_id = str(get_val(leg, ['to_stop_id', 'end_stop_id'])).strip()
                 t_name = self.stop_id_to_name.get(t_id, "정류장")
-                
                 route_id = str(get_val(leg, ['route_id']))
                 route_name = self.route_id_to_name.get(route_id, "대중교통")
-                
                 mode_nm = "지하철" if any(x in raw_mode for x in ['SUBWAY', 'RAIL', 'METRO']) else "버스"
                 
                 segs.append(f"[{mode_nm}][{route_name}] : {f_name} → {t_name} : {ride_time}분")
@@ -589,7 +597,7 @@ class RouteOptimizerService:
 
     # ========== 타임라인 빌더 ==========
     
-    def _build_timeline_by_type(self, visited_nodes, path_map, display_start_dt, target_date_str, path_type):
+    def _build_timeline_by_type(self, visited_nodes, path_map, display_start_dt, target_date_str, path_type, transport_mode="transport"):
         """
         타임라인 생성
         1. 첫 번째 장소: 이동 없이 사용자 설정 시간에 즉시 시작
@@ -598,8 +606,7 @@ class RouteOptimizerService:
         timeline = []
         
         # visited_nodes[0]은 Depot(가상 시작점)이므로 최소 2개(Depot + 첫장소)는 있어야 함
-        if len(visited_nodes) < 2:
-            return []
+        if len(visited_nodes) < 2: return []
 
         # 시간 커서 초기화 (사용자가 설정한 그 시간, 예: 10:00)
         cursor_dt = display_start_dt
@@ -626,7 +633,8 @@ class RouteOptimizerService:
                 path_options = path_map.get((prev['id'], node['id']))
                 
                 if path_options:
-                    chosen_path = path_options.get(path_type, path_options.get('fastest', []))
+                    effective_type = 'fastest' if transport_mode == "car" else path_type
+                    chosen_path = path_options.get(effective_type, path_options.get('fastest', []))
                     
                     for segment in chosen_path:
                         seg_mins = sum(int(m) for m in re.findall(r'(\d+)분', segment))
@@ -746,8 +754,8 @@ class RouteOptimizerService:
 
     # ========== OR-Tools 최적화 ==========
     
-    def _optimize_day(self, places, restaurants, fixed_events, start_time_str, target_date_str, end_time_str=None):
-        """단일 일자 경로 최적화"""
+    def _optimize_day(self, places, restaurants, fixed_events, start_time_str, target_date_str, end_time_str=None, transport_mode="transport"):
+        """단일 일자 경로 최적화 (transport_mode 추가됨)"""
         day_start_dt = datetime.strptime(start_time_str, "%H:%M")
         
         r5_dep_dt = datetime.combine(datetime.strptime(target_date_str, "%Y-%m-%d"), datetime.strptime("11:00", "%H:%M").time())
@@ -765,20 +773,18 @@ class RouteOptimizerService:
             node["id"] = int(idx)
         n = len(nodes)
 
-        # r5py 이동 시간 행렬
-        r5_travel_times = self._get_r5py_matrix(nodes, r5_dep_dt)
+        # [수정 1] r5py 이동 시간 행렬 (모드 전달)
+        r5_travel_times = self._get_r5py_matrix(nodes, r5_dep_dt, transport_mode=transport_mode)
         
-        # 시간 행렬 구성
+        # 시간 행렬 구성 (기존 로직 동일)
         time_matrix = [[0]*n for _ in range(n)]
         for i in range(n):
             for j in range(n):
                 if i == j: continue
                 val = r5_travel_times.get((i, j))
                 if val is None:
-                    # r5 실패 시 거리 기반 폴백 사용
                     val = self._travel_minutes(nodes[i], nodes[j])
                 
-                # 고정일정 이동시간 보정
                 if nodes[i]["type"] == "fixed" or nodes[j]["type"] == "fixed":
                     if not (nodes[i]["type"] == "depot" and nodes[j]["type"] == "fixed"):
                         val = max(val, 30)
@@ -842,13 +848,20 @@ class RouteOptimizerService:
         
         print("상세 경로 계산 중...")
         start_path_time = time.time()
-        path_map = self._get_all_detailed_paths(trip_legs, r5_dep_dt)
+
+        path_map = self._get_all_detailed_paths(trip_legs, r5_dep_dt, transport_mode=transport_mode)
+
         print(f"상세 경로 계산 완료: {round(time.time() - start_path_time, 2)}초")
 
-        return {
-            "fastest_version": self._build_timeline_by_type(visited_nodes, path_map, display_start_dt, target_date_str, "fastest"),
-            "min_transfer_version": self._build_timeline_by_type(visited_nodes, path_map, display_start_dt, target_date_str, "min_transfer")
-        }
+        if transport_mode == "car":
+            return {
+                "car_version": self._build_timeline_by_type(visited_nodes, path_map, display_start_dt, target_date_str, "fastest", transport_mode="car")
+            }
+        else:
+            return {
+                "fastest_version": self._build_timeline_by_type(visited_nodes, path_map, display_start_dt, target_date_str, "fastest"),
+                "min_transfer_version": self._build_timeline_by_type(visited_nodes, path_map, display_start_dt, target_date_str, "min_transfer")
+            }
 
     # ========== Gemini AI 추천 ==========
     
@@ -980,7 +993,6 @@ class RouteOptimizerService:
         # 4. Gemini AI 추천 호출
         start_gemini = time.time()
         
-        # [수정된 부분] 반환값을 변수 2개로 나누어 받습니다 (Unpacking)
         # gemini_plan: 계획 데이터(Dict), _: 소요시간(사용 안함)
         gemini_plan, _ = self._get_gemini_recommendation(days, places, restaurants, accommodations)
         
@@ -993,7 +1005,7 @@ class RouteOptimizerService:
         plans = gemini_plan['plans']
         day_keys = list(plans.keys())
         
-        print(f"\n 병렬 최적화 시작: {len(day_keys)}일치 일정 계산")
+        print(f"\n 병렬 최적화 시작: {len(day_keys)}일치 일정 계산 (Mode: {request.transport_mode})")
         start_total_opt = time.time()
 
         def process_day_wrapper(args):
@@ -1010,7 +1022,8 @@ class RouteOptimizerService:
                 fixed_events=day_fixed,
                 start_time_str=todays_start,
                 target_date_str=current_date_str,
-                end_time_str=todays_end
+                end_time_str=todays_end,
+                transport_mode=request.transport_mode  # 모드 전달
             )
             return day_key, day_res
 
