@@ -35,6 +35,9 @@ class PlanService:
                 for evt in payload["fixed_events"]:
                     fixed_events.append(FixedEvent(**evt))
 
+            # [DEBUG] 로그 추가
+            print(f"🔥🔥 [DEBUG] 요청 모드 확인: {payload.get('transport_mode')} 🔥🔥")
+
             # RouteService 요청 객체 생성 (들어온 payload 데이터를 그대로 활용)
             request_data = PlanGenerateRequest(
                 region=payload["region"],
@@ -42,7 +45,9 @@ class PlanService:
                 end_date=payload["end_date"],
                 first_day_start_time=payload["first_day_start_time"],
                 last_day_end_time=payload["last_day_end_time"],
-                fixed_events=fixed_events
+                fixed_events=fixed_events,
+                # ✅ [수정] transport_mode 추가 (기본값 'transport')
+                transport_mode=payload.get("transport_mode", "transport") 
             )
         except Exception as e:
             raise AppError("invalid_payload", f"데이터 매핑 에러: {str(e)}", 422)
@@ -57,12 +62,16 @@ class PlanService:
             print(f"❌ [PlanService] 알고리즘 에러: {e}")
             raise AppError("generation_failed", str(e), 500)
 
-        # 4. [주석 처리] DB 저장 로직
+        # 4. DB 저장 로직 (원래 코드 복원 형태)
         # plan = Plan(
-        #     user_id=user_id,
-        #     region=payload["region"],
-        #     variants_json=generated_plans_json,
+        #     user_id=user_id,                      # 요청한 유저 ID
+        #     region=payload["region"],             # 여행 지역 (예: 강남구)
+        #     start_date=payload["start_date"],     # (옵션) 시작일 - 모델에 있다면
+        #     end_date=payload["end_date"],         # (옵션) 종료일 - 모델에 있다면
+        #     variants_json=generated_plans_json    # ★ 핵심: 알고리즘이 만든 경로 결과 (JSON)
         # )
+        
+        # # 레포지토리를 통해 DB에 INSERT 하고, 저장된 객체를 반환
         # return await self.repo.create_plan(plan)
 
         # 5. 결과 반환 (DB 저장 없이 딕셔너리로 바로 리턴)
@@ -74,6 +83,7 @@ class PlanService:
                 "end_date": payload["end_date"],
                 "transport": payload.get("transport", "public"),
                 "crowd_mode": payload.get("crowd_mode", "default"),
+                "transport_mode": request_data.transport_mode # 결과 확인용 추가
             },
             "variants": generated_plans_json # 실제 알고리즘 결과
         }
@@ -81,7 +91,6 @@ class PlanService:
     # -------------------------------------------------------
     # DB 의존 메서드들 (전부 주석 처리 또는 에러 처리)
     # -------------------------------------------------------
-
     async def get_plan(self, user_id: str, plan_id: str):
         raise AppError("not_implemented", "DB disabled for testing", 501)
 
