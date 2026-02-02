@@ -916,7 +916,7 @@ class RouteOptimizerService:
             with open(RESULT_JSON_PATH, "w", encoding="utf-8") as f:
                 json.dump(plan, f, ensure_ascii=False, indent=2)
             
-            return plan
+            return plan, 0
         except Exception as e:
             print(f"Gemini API 오류: {e}")
             return None, 0
@@ -949,6 +949,8 @@ class RouteOptimizerService:
             ['name', 'lat', 'lng', 'category', 'category2']
         ]
         places = filtered_spot.to_dict(orient='records')
+
+        print(f"{request.region} 중심 반경 {RADIUS_KM}km내 장소 개수 {len(places)}개")
         
         avg_lat = filtered_spot['lat'].mean() if len(filtered_spot) > 0 else center['lat']
         avg_lng = filtered_spot['lng'].mean() if len(filtered_spot) > 0 else center['lon']
@@ -956,15 +958,19 @@ class RouteOptimizerService:
         df['dist_to_center'] = df.apply(
             lambda r: self._haversine(avg_lat, avg_lng, r['lat'], r['lng']), axis=1
         )
-        filtered_restaurant = df[(df['dist_to_center'] <= 3) & (df['category'] == '음식점')][
+        filtered_restaurant = df[(df['dist_to_center'] <= 4) & (df['category'] == '음식점')][
             ['name', 'lat', 'lng', 'category', 'category2']
         ]
         restaurants = filtered_restaurant.to_dict(orient='records')
+
+        print(f"필터링된 장소의 중심 반경 4km내 음식점 개수 {len(restaurants)}개")
         
         filtered_accom = df[dist_mask & (df['category'] == '숙박')][
             ['name', 'lat', 'lng', 'category', 'category2']
         ]
         accommodations = filtered_accom.to_dict(orient='records')
+
+        print(f"{request.region} 중심 반경 {RADIUS_KM}km내 숙소 개수 {len(accommodations)}개")
 
         start_dt = datetime.strptime(request.start_date, '%Y-%m-%d')
         end_dt = datetime.strptime(request.end_date, '%Y-%m-%d')
