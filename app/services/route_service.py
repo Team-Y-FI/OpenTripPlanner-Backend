@@ -615,6 +615,8 @@ class RouteOptimizerService:
         nodes = self._build_nodes(places, restaurants, fixed_events, day_start)
         for idx, node in enumerate(nodes): node["id"] = int(idx)
         n = len(nodes)
+
+        t_matrix_start = time.time()
         
         r5_times = self._get_r5py_matrix(nodes, r5_dep, transport_mode)
         time_matrix = [[0]*n for _ in range(n)]
@@ -638,6 +640,8 @@ class RouteOptimizerService:
                 if nodes[i]["type"] == "fixed" or nodes[j]["type"] == "fixed":
                     if not (nodes[i]["type"] == "depot" and nodes[j]["type"] == "fixed"): val = max(val, 30)
                 time_matrix[i][j] = nodes[i]["stay"] + int(val)
+
+        t_matrix_end = time.time()
 
         manager = pywrapcp.RoutingIndexManager(n, 1, 0)
         routing = pywrapcp.RoutingModel(manager)
@@ -669,7 +673,13 @@ class RouteOptimizerService:
                     time_dim.CumulVar(idx).SetRange(s, e)
                     routing.AddDisjunction([idx], 1000000 if node["type"] in ["lunch","dinner"] else 100000)
 
+        t_solve_start = time.time()
+
         sol = routing.SolveWithParameters(pywrapcp.DefaultRoutingSearchParameters())
+
+        t_solve_end = time.time()
+        print(f"[{target_date_str}] 매트릭스 계산: {t_matrix_end - t_matrix_start:.4f}초 | 방문 순서 최적화: {t_solve_end - t_solve_start:.4f}초")
+
         if not sol: return {"fastest_version": [], "min_transfer_version": []}
 
         idx = routing.Start(0)
@@ -761,24 +771,36 @@ class RouteOptimizerService:
             return None, 0
 
     def generate_plan(self, request: PlanGenerateRequest):
+
+        total_start_time = time.time()
+
         if not self.is_initialized: self.initialize_resources()
         if self.df_places is None: return {'error': '장소 데이터를 불러올 수 없습니다'}
         
         center = SEOUL_GU_COORDS.get(request.region, {"lat": 37.57, "lon": 126.98})
+        REDIUS = 8
         df = self.df_places.copy()
         df['dist'] = df.apply(lambda r: self._haversine(center['lat'], center['lon'], r['lat'], r['lng']), axis=1)
         
-        places = df[(df['dist']<=8) & (~df['category'].isin(['음식점','숙박']))].to_dict('records')
-        restaurants = df[(df['dist']<=4) & (df['category']=='음식점')].to_dict('records')
-        accommodations = df[(df['dist']<=8) & (df['category']=='숙박')].to_dict('records')
+        places = df[(df['dist']<=REDIUS) & (~df['category'].isin(['음식점','숙박']))].to_dict('records')
+        print(f"'{request.region}' 중심 반경 {REDIUS}km 내 관광 장소 개수 {len(places)}")
+
+        restaurants = df[(df['dist']<=REDIUS) & (df['category']=='음식점')].to_dict('records')
+        print(f"'{request.region}' 중심 반경 {REDIUS}km 내 음식점 개수 {len(restaurants)}")
+
+        accommodations = df[(df['dist']<=REDIUS) & (df['category']=='숙박')].to_dict('records')
+        print(f"'{request.region}' 중심 반경 {REDIUS}km 내 숙박시설 개수 {len(accommodations)}")
         
         start_dt = datetime.strptime(request.start_date, '%Y-%m-%d')
         end_dt = datetime.strptime(request.end_date, '%Y-%m-%d')
         days = (end_dt - start_dt).days + 1
         
+        start_gemini = time.time()
         plan, _ = self._get_gemini_recommendation(days, places, restaurants, accommodations)
+        print(f"Gemini 생성 완료 : {round(time.time() - start_gemini, 2)}초")
         if not plan: return {'error': 'AI 추천 실패'}
 
+        start_opt = time.time()
         print(f"병렬 최적화 시작 ({days}일, Mode: {request.transport_mode})")
         tasks = []
         curr = start_dt
@@ -799,6 +821,12 @@ class RouteOptimizerService:
             
         final_result = {k: plan['plans'][k] for k in plan['plans']}
         for k, res in results: final_result[k]['timelines'] = res
+
+        print(f"병렬 최적화 완료 : {round(time.time() - start_opt, 2)}초")
+
+        total_end_time = time.time()
+        print(f"[Total] 전체 프로세스 완료: {total_end_time - total_start_time:.2f}초")
+
         return final_result
 
 route_service = RouteOptimizerService()
