@@ -783,13 +783,13 @@ class RouteOptimizerService:
         df['dist'] = df.apply(lambda r: self._haversine(center['lat'], center['lon'], r['lat'], r['lng']), axis=1)
         
         places = df[(df['dist']<=REDIUS) & (~df['category'].isin(['음식점','숙박']))].to_dict('records')
-        print(f"'{request.region}' 중심 반경 {REDIUS}km 내 관광 장소 개수 {len(places)}")
+        print(f"'{request.region}' 중심 반경 {REDIUS}km 내 관광 장소 개수 {len(places)}개")
 
         restaurants = df[(df['dist']<=REDIUS) & (df['category']=='음식점')].to_dict('records')
-        print(f"'{request.region}' 중심 반경 {REDIUS}km 내 음식점 개수 {len(restaurants)}")
+        print(f"'{request.region}' 중심 반경 {REDIUS}km 내 음식점 개수 {len(restaurants)}개")
 
         accommodations = df[(df['dist']<=REDIUS) & (df['category']=='숙박')].to_dict('records')
-        print(f"'{request.region}' 중심 반경 {REDIUS}km 내 숙박시설 개수 {len(accommodations)}")
+        print(f"'{request.region}' 중심 반경 {REDIUS}km 내 숙박시설 개수 {len(accommodations)}개")
         
         start_dt = datetime.strptime(request.start_date, '%Y-%m-%d')
         end_dt = datetime.strptime(request.end_date, '%Y-%m-%d')
