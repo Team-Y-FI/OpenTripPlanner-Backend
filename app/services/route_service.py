@@ -396,14 +396,45 @@ class RouteOptimizerService:
     def _build_nodes(self, places, restaurants, fixed_events, day_start_dt):
         nodes = []
         first = places[0] if places else {"lat": 37.5665, "lng": 126.9780}
-        nodes.append({"name": "시작점", "category": "출발", "lat": first.get("lat"), "lng": first.get("lng"), "stay": 0, "type": "depot"})
+        nodes.append({
+                "name": "시작점",
+                "category": "출발",
+                "category2": "",
+                "lat": first.get("lat"),
+                "lng": first.get("lng"),
+                "stay": 0,
+                "type": "depot"
+                })
         for p in places:
-            nodes.append({"name": p["name"], "category": p.get("category", "관광지"), "lat": p.get("lat"), "lng": p.get("lng"), "stay": stay_time_map.get(p.get("category"), 60), "type": "spot"})
+            nodes.append({
+                "name": p["name"],
+                "category": p.get("category", "관광지"),
+                "category2": p.get("category2", ""),
+                "lat": p.get("lat"), "lng": p.get("lng"),
+                "stay": stay_time_map.get(p.get("category"), 60),
+                "type": "spot"
+                })
         if len(restaurants) >= 2:
-            nodes.append({"name": restaurants[0]["name"], "category": "음식점", "lat": restaurants[0].get("lat"), "lng": restaurants[0].get("lng"), "stay": 70, "type": "lunch"})
+            nodes.append({
+                "name": restaurants[0]["name"],
+                "category": "음식점",
+                "category2": restaurants[0].get("category2", "음식점"),
+                "lat": restaurants[0].get("lat"),
+                "lng": restaurants[0].get("lng"),
+                "stay": 70,
+                "type": "lunch"
+                })
             d_idx = 1 if restaurants[0]["name"] != restaurants[1]["name"] else 2
             if len(restaurants) > d_idx:
-                nodes.append({"name": restaurants[d_idx]["name"], "category": "음식점", "lat": restaurants[d_idx].get("lat"), "lng": restaurants[d_idx].get("lng"), "stay": 70, "type": "dinner"})
+                nodes.append({
+                    "name": restaurants[d_idx]["name"],
+                    "category": "음식점",
+                    "category2": restaurants[d_idx].get("category2", "음식점"),
+                    "lat": restaurants[d_idx].get("lat"),
+                    "lng": restaurants[d_idx].get("lng"),
+                    "stay": 70,
+                    "type": "dinner"
+                    })
         
         # 고정 일정 빌더 호출
         nodes.extend(self._build_fixed_nodes(fixed_events, day_start_dt))
@@ -534,10 +565,11 @@ class RouteOptimizerService:
                 cursor_dt = end_dt
 
             timeline.append({
-                "name": node['name'], 
-                "category": node["category"], 
+                "name": node['name'],
+                "category": node["category"],
+                "category2": node.get("category2", ""),
                 "time": time_str,
-                "transit_to_here": transit_info, 
+                "transit_to_here": transit_info,
                 "population_level": pop_label,
                 "traffic_level": traffic_label
             })
