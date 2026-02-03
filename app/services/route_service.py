@@ -145,22 +145,44 @@ class RouteOptimizerService:
                 meta = pickle.load(f)
                 self.stop_id_to_name = meta.get('stops', {})
                 self.route_id_to_name = meta.get('routes', {})
-                self.stop_route_map = meta.get('stop_route_map', {})
+                self.stop_route_map = meta.get('stop_route_map', {}) # 로드
                 self.stop_coords = meta.get('coords', {})
             return
 
+        print("메타데이터 캐시 생성 중... (GTFS 파싱)")
         with zipfile.ZipFile(GTFS_FILES[0]) as z:
+            # 1. Stops 로드
             with z.open('stops.txt') as f:
                 stops_df = pd.read_csv(f, dtype={'stop_id': str}, usecols=['stop_id', 'stop_name', 'stop_lat', 'stop_lon'])
             self.stop_id_to_name = {str(r['stop_id']).strip(): str(r['stop_name']).strip() for _, r in stops_df.iterrows()}
             self.stop_coords = {str(r['stop_id']).strip(): {'lat': r['stop_lat'], 'lng': r['stop_lon']} for _, r in stops_df.iterrows()}
             
+            # 2. Routes 로드
             with z.open('routes.txt') as f:
                 routes_df = pd.read_csv(f)
             self.route_id_to_name = dict(zip(routes_df['route_id'].astype(str), routes_df['route_short_name'].astype(str)))
 
+            # 3. Stop_Route_Map 생성
+            with z.open('trips.txt') as f:
+                trips_df = pd.read_csv(f, usecols=['trip_id', 'route_id'], dtype=str)
+            
+            with z.open('stop_times.txt') as f:
+                stop_times_df = pd.read_csv(f, usecols=['trip_id', 'stop_id'], dtype=str)
+            
+            merged = stop_times_df.merge(trips_df, on='trip_id', how='left')
+
+            stop_route_group = merged.groupby('stop_id')['route_id'].apply(set).to_dict()
+            self.stop_route_map = {k.strip(): v for k, v in stop_route_group.items()}
+
+        # 캐시 저장
         with open(META_CACHE_PATH, 'wb') as f:
-            pickle.dump({'stops': self.stop_id_to_name, 'routes': self.route_id_to_name, 'coords': self.stop_coords}, f)
+            pickle.dump({
+                'stops': self.stop_id_to_name, 
+                'routes': self.route_id_to_name, 
+                'stop_route_map': self.stop_route_map, # 저장
+                'coords': self.stop_coords
+            }, f)
+        print("메타데이터 생성 완료")
 
     # ========== 예측 및 가중치 계산 ==========
     
@@ -309,28 +331,32 @@ class RouteOptimizerService:
                     
                     mode_nm = "지하철" if any(x in raw_mode for x in ['SUBWAY', 'RAIL', 'METRO']) else "버스"
                     
-                    # [수정] 모든 버스 노선 찾기 로직
+                    # 버스일 경우 모든 가능한 노선 찾기
                     display_route_name = ""
                     if mode_nm == "버스":
-                        # 출발지와 도착지를 모두 지나는 노선들의 교집합(Intersection) 구하기
+                        # 1. 출발 정류장에 서는 노선들
                         routes_at_start = self.stop_route_map.get(f_id, set())
+                        # 2. 도착 정류장에 서는 노선들
                         routes_at_end = self.stop_route_map.get(t_id, set())
+                        # 3. 교집합 (두 정류장을 모두 지나는 노선들)
                         common_routes = routes_at_start.intersection(routes_at_end)
                         
                         if common_routes:
-                            # 이름으로 변환 후 정렬
-                            route_names = sorted([self.route_id_to_name.get(rid, rid) for rid in common_routes])
-                            # 너무 많으면 5개까지만 표시하고 등... 처리
-                            if len(route_names) > 5:
-                                display_route_name = ", ".join(route_names[:5]) + " 등"
-                            else:
-                                display_route_name = ", ".join(route_names)
+                            # ID를 사람이 읽을 수 있는 번호(short_name)로 변환
+                            route_names = []
+                            for rid in common_routes:
+                                r_name = self.route_id_to_name.get(rid)
+                                if r_name:
+                                    route_names.append(str(r_name))
+                            # 정렬 및 중복 제거
+                            unique_routes = sorted(list(set(route_names)))
+                            display_route_name = ", ".join(unique_routes)
                         else:
-                            # 교집합이 없으면(데이터 누락 등) 원래 선택된 노선 하나만 표시
+                            # 데이터 매핑 실패 시 기존 방식(단일 노선) fallback
                             route_key = clean_id(leg.get('route_id'))
                             display_route_name = self.route_id_to_name.get(route_key, "대중교통")
                     else:
-                        # 지하철은 원래대로 (보통 호선 하나만 이용하므로)
+                        # 지하철은 호선이 중요하므로 단일 노선 유지 (또는 동일 로직 적용 가능)
                         route_key = clean_id(leg.get('route_id'))
                         display_route_name = self.route_id_to_name.get(route_key, "대중교통")
 
