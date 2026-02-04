@@ -146,16 +146,6 @@ class SimpleRouteSolver:
                     else:
                         wait_time = 0
 
-                # (C) 식사 대기 페널티 (30분 넘으면 비용 증가, 그러나 방문은 허용)
-                penalty_cost = 0
-
-                # [점수 계산] 식사는 10점, 나머지는 1점
-                node_score = 10 if node_type in ["lunch", "dinner"] else 1
-
-                if node_type in ["lunch", "dinner"]:
-                    if wait_time > 30:
-                        penalty_cost = (wait_time - 30) * 10
-
                 # 3. 활동 종료 시간
                 if len(path) == 1 and arrival < win_start and node_type not in ["lunch", "dinner"]:
                     start_activity = win_start
@@ -165,9 +155,20 @@ class SimpleRouteSolver:
                 stay_duration = self.nodes[next_idx]["stay"]
                 leave_time = start_activity + stay_duration
 
-                # (D) 하루 종료 시간 초과 체크
+                penalty_cost = 0
+                node_score = 10 if node_type in ["lunch", "dinner"] else 1
+
+                if node_type in ["lunch", "dinner"]:
+                    if wait_time > 20:
+                        penalty_cost += (wait_time - 30) * 10
+                
+                # 종료 시간(타임테이블) 초과 페널티
                 if leave_time > self.max_horizon:
-                    continue
+                    if node_type in ["lunch", "dinner"]:
+                        penalty_cost += (leave_time - self.max_horizon) * 50
+                    else:
+                        node_score = 0.1
+                        penalty_cost += (leave_time - self.max_horizon) * 100
 
                 # 4. 재귀 호출
                 visited[next_idx] = True
@@ -777,7 +778,7 @@ class RouteOptimizerService:
         solver_nodes = copy.deepcopy(nodes)
         for node in solver_nodes:
             if node["type"] not in ["fixed", "depot"]:
-                node["stay"] = int(node["stay"] * 1.1)
+                node["stay"] = int(node["stay"] * 1.2)
 
         # 3. 이동 시간 매트릭스 생성 (R5PY + Haversine)
         r5_dep = datetime.combine(base_date, datetime.strptime("11:00", "%H:%M").time())
@@ -796,7 +797,7 @@ class RouteOptimizerService:
                         val = max(val, 30)
                 
                 # 이동 시간 20% 여유(Safety Margin) 추가
-                val = int(val * 1.2)
+                val = int(val * 1.3)
                 
                 time_matrix[i][j] = int(val)
         
