@@ -20,6 +20,8 @@ orjson==3.10.7
 
 exifread==3.0.0
 
+aiosmtplib>=3.0.0
+
 # Data Science & Analysis
 pandas
 numpy

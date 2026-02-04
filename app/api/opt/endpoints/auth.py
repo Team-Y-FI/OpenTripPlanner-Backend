@@ -39,7 +39,7 @@ class LoginIn(BaseModel):
 async def send_verification(body: SendVerificationIn, db: AsyncSession = Depends(get_db)):
     svc = AuthService(db)
     await svc.send_verification(email=str(body.email))
-    return {"message": "인증코드가 발송되었습니다. (콘솔 출력/가상 발송)"}
+    return {"message": "인증코드가 이메일로 발송되었습니다."}
 
 
 @router.post("/verify-code")
