@@ -61,8 +61,8 @@ SEOUL_GU_COORDS = {
 FALLBACK_MOVE_MIN = 30
 MAX_TRANSFERS = 2
 MAX_TRAVEL_TIME_MIN = 90
-LUNCH_WINDOW = ("11:20", "13:20")
-DINNER_WINDOW = ("17:40", "19:30")
+LUNCH_WINDOW = ("11:00", "13:30")
+DINNER_WINDOW = ("17:00", "19:30")
 
 stay_time_map = {
     "관광지": 90, "카페": 50, "음식점": 70,
