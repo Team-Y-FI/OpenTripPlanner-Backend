@@ -136,9 +136,10 @@ class SimpleRouteSolver:
                 if arrival < win_start:
                     wait_time = win_start - arrival
                 
+                # '식당'이 첫 장소인데 대기가 길다면, 그 시간에 '관광지'를 다녀오는 게 이득이므로 비용을 그대로 둔다.
                 node_type = self.nodes[next_idx]["type"]
 
-                # # 식당은 오픈런 대기 시간을 '비용'으로 인식시켜서, 가능하다면 앞에 다른 관광지를 끼워 넣도록 유도함
+                # 식당은 오픈런 대기 시간을 '비용'으로 인식시켜서, 가능하다면 앞에 다른 관광지를 끼워 넣도록 유도함
                 if len(path) == 1: 
                     if node_type in ["lunch", "dinner"]:
                         pass
