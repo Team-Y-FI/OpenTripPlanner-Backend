@@ -135,14 +135,18 @@ class SimpleRouteSolver:
                 wait_time = 0
                 if arrival < win_start:
                     wait_time = win_start - arrival
+                
+                node_type = self.nodes[next_idx]["type"]
 
-                # 유연한 출발 (첫 장소 대기 무시)
+                # # 식당은 오픈런 대기 시간을 '비용'으로 인식시켜서, 가능하다면 앞에 다른 관광지를 끼워 넣도록 유도함
                 if len(path) == 1: 
-                    wait_time = 0
+                    if node_type in ["lunch", "dinner"]:
+                        pass
+                    else:
+                        wait_time = 0
 
                 # (C) 식사 대기 페널티 (30분 넘으면 비용 증가, 그러나 방문은 허용)
                 penalty_cost = 0
-                node_type = self.nodes[next_idx]["type"]
 
                 # [점수 계산] 식사는 10점, 나머지는 1점
                 node_score = 10 if node_type in ["lunch", "dinner"] else 1
@@ -152,7 +156,7 @@ class SimpleRouteSolver:
                         penalty_cost = (wait_time - 30) * 10
 
                 # 3. 활동 종료 시간
-                if len(path) == 1 and arrival < win_start:
+                if len(path) == 1 and arrival < win_start and node_type not in ["lunch", "dinner"]:
                     start_activity = win_start
                 else:
                     start_activity = arrival + wait_time
@@ -687,7 +691,7 @@ class RouteOptimizerService:
                 if arrival_dt < win_start:
                     wait_min = int((win_start - arrival_dt).total_seconds() / 60)
                     if wait_min > 0:
-                        transit_info.append(f"⏳ 오픈 대기 : {wait_min}분")
+                        transit_info.append(f"남는 시간 : {wait_min}분")
                         arrival_dt = win_start # 대기 후 입장
 
             # 3. 체류 시간 및 라벨링
