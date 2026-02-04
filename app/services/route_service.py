@@ -33,6 +33,7 @@ GTFS_FILES = ["./data/seoul_area_gtfs.zip"]
 TN_CACHE_PATH = "./data/seoul_tn_cached.pkl"
 META_CACHE_PATH = "./data/metadata_cache_v2.pkl"
 RESULT_JSON_PATH = "result.json"
+RESULT_FINAL_PATH = "result_timeline.json"
 
 KOREAN_HOLIDAYS_2026 = [
     '20260101', '20260216', '20260217', '20260218', '20260301', '20260302',
@@ -1015,6 +1016,9 @@ class RouteOptimizerService:
 
         total_end_time = time.time()
         print(f"[Total] 전체 프로세스 완료: {total_end_time - total_start_time:.2f}초")
+
+        with open(RESULT_FINAL_PATH, "w", encoding="utf-8") as f:
+                json.dump(final_result, f, ensure_ascii=False, indent=2)
 
         return final_result
 route_service = RouteOptimizerService()
