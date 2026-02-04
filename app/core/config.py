@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     SMTP_USE_TLS: bool = True          # STARTTLS(587)
     SMTP_TIMEOUT: int = 10
 
+    # Kakao OAuth
+    KAKAO_CLIENT_ID: str = ""
+    KAKAO_CLIENT_SECRET: str = ""
+    KAKAO_REDIRECT_URI: str = ""
+
 
 settings = Settings()
 
