@@ -40,3 +40,6 @@ google-genai
 # Utilities
 python-dotenv
 exifread
+
+#
+email-validator==2.1.1
