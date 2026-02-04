@@ -16,6 +16,7 @@ PyJWT>=2.8
 
 
 python-multipart
+httpx==0.27.2
 orjson==3.10.7
 
 exifread==3.0.0

@@ -28,7 +28,12 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = ""
 
     STORAGE_DIR: str = "./storage"
+    UPLOAD_MAX_PHOTOS: int = 20
+    UPLOAD_MAX_FILE_SIZE_MB: int = 10
+    UPLOAD_ALLOWED_EXTS: str = "jpg,jpeg,png,webp,heic,heif"
+
     REDIS_URL: str | None = None
+    GOOGLE_API_KEY: str | None = None
 
 
 settings = Settings()

@@ -53,7 +53,7 @@ async def upload_photos(
 
     return {
         "upload_id": upload.upload_id,
-        "limits": {"max_photos": 20},
+        "limits": UploadService.limits(),
         "photos": [photo_out(p) for p in photos],
     }
 

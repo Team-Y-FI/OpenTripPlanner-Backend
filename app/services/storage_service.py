@@ -8,10 +8,13 @@ class LocalStorageService:
 
     async def save(self, file: UploadFile) -> str:
         """Save file into STORAGE_DIR and return a storage key (relative filename)."""
-        ext = os.path.splitext(file.filename or "")[1].lower()
+        content = await file.read()
+        return await self.save_bytes(file.filename, content)
+
+    async def save_bytes(self, filename: str | None, content: bytes) -> str:
+        ext = os.path.splitext(filename or "")[1].lower()
         name = f"{uuid.uuid4().hex}{ext if ext else ''}"
         abs_path = os.path.join(settings.STORAGE_DIR, name)
-        content = await file.read()
         with open(abs_path, "wb") as f:
             f.write(content)
         return name
