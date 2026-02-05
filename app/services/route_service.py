@@ -685,7 +685,7 @@ class RouteOptimizerService:
             prev, node = visited_nodes[i-1], visited_nodes[i]
             transit_info = []
             
-            current_leg_travel_time = 0 # 이번 이동에 걸린 실제 시간 (분)
+            current_leg_travel_time = 0 
 
             if i == 1:
                 if 'arrival_min' in node:
@@ -693,10 +693,9 @@ class RouteOptimizerService:
                 else:
                     arrival_dt = cursor_dt
             else:
-                # 일단 잠시 보류 (경로 계산 후 더할 것임)
                 arrival_dt = cursor_dt 
 
-            # [예측용] 도착지 혼잡도 조회 (i > 1일 경우 임시 arrival_dt로 조회)
+            # [예측용] 도착지 혼잡도 조회
             dest_traffic_lvl = self._get_traffic_level(node.get('lat'), node.get('lng'), arrival_dt)
             traffic_checked = False
 
@@ -707,24 +706,21 @@ class RouteOptimizerService:
                     chosen_path = path_options.get('fastest' if transport_mode == "car" else path_type, [])
                     
                     for segment in chosen_path:
-                        # 원본 소요 시간 파싱
                         seg_mins = sum(int(m) for m in re.findall(r'(\d+)분', segment))
-                        
                         added_min = 0
                         status_tag = ""
                         
-                        # (A) 대기 시간 지연 계산
+                        # (A) 대기 시간 지연
                         if "대기" in segment:
                             origin_traffic_lvl = self._get_traffic_level(prev.get('lat'), prev.get('lng'), cursor_dt)
                             if origin_traffic_lvl > 0:
                                 weight = self._get_wait_weight(origin_traffic_lvl)
                                 final_mins = math.ceil(seg_mins * weight)
                                 added_min = final_mins - seg_mins
-                                
                                 icon = ICONS.get(origin_traffic_lvl, "")
                                 status_tag = f" [{icon}]"
 
-                        # (B) 이동 시간 지연 계산
+                        # (B) 이동 시간 지연
                         elif "승용차" in segment or "버스" in segment:
                             traffic_checked = True
                             if dest_traffic_lvl > 0:
@@ -737,38 +733,33 @@ class RouteOptimizerService:
                                 icon = ICONS.get(dest_traffic_lvl, "")
                                 status_tag = f" [{icon}{t_txt}]"
 
-                        # (C) 텍스트 업데이트 및 시간 누적
+                        # (C) 텍스트 업데이트
                         real_mins = seg_mins + added_min
-                        current_leg_travel_time += real_mins # <--- 실제 걸리는 시간 누적
+                        current_leg_travel_time += real_mins
 
                         if added_min > 0:
                             status_tag = status_tag.replace("]", f" (+{added_min}분)]")
                             segment = re.sub(r'\d+분', f'{real_mins}분', segment)
                         
                         transit_info.append(segment + status_tag)
-
                 else:
-                    # 경로 정보가 없을 경우 (직선 거리)
                     est_min = self._travel_minutes(prev, node)
                     current_leg_travel_time += est_min
                     transit_info.append(f"이동 : {est_min}분")
                 
-                # [중요] 누적된 이동 시간을 더해서 진짜 도착 시간 확정
                 arrival_dt = cursor_dt + timedelta(minutes=current_leg_travel_time)
 
-            # 2. 현장 대기 (식당 오픈 대기)
+            # 2. 현장 대기
             if node["type"] in ["lunch", "dinner"]:
                 t_win = LUNCH_WINDOW if node["type"] == "lunch" else DINNER_WINDOW
                 win_start = datetime.strptime(f"{target_date_str} {t_win[0]}", "%Y-%m-%d %H:%M")
-                
-                # 계산된 arrival_dt가 오픈 시간보다 빠르면 대기
                 if arrival_dt < win_start:
                     wait_min = int((win_start - arrival_dt).total_seconds() / 60)
                     if wait_min > 0:
                         transit_info.append(f"남는 시간 : {wait_min}분")
-                        arrival_dt = win_start # 대기 후 입장
+                        arrival_dt = win_start
 
-            # 3. 체류 시간 및 라벨링
+            # 3. 체류 시간 및 라벨링 (수정됨)
             final_stay = node["stay"]
             pop_label = "정보없음"
             time_congestion_info = ""
@@ -782,24 +773,28 @@ class RouteOptimizerService:
                 
                 pop_txt = {0: "여유", 1: "보통", 2: "혼잡"}.get(pop_lvl, "정보없음")
                 icon = ICONS.get(pop_lvl, "")
-                pop_label = f"{icon}{pop_txt}"
+                
+                # [수정] 인구 라벨 포맷 변경 (👥 인구 상태🟢)
+                pop_label = f"인구 {pop_txt}{icon}"
                 
                 if add_stay > 0:
                     time_congestion_info = f" [{icon}{pop_txt} (+{add_stay}분)]"
             
             elif node["type"] == "fixed":
-                pop_label = "📅고정일정"
+                pop_label = "고정일정"
 
-            # 4. 타임라인 문자열 조립 및 커서 업데이트
-            # Traffic Label
+            # 4. 타임라인 문자열 조립
+            # [수정] 교통 라벨 포맷 변경 (🚗 교통 상태🟡)
             traffic_label = "-"
-            if i == 1: traffic_label = "-"
+            if i == 1: 
+                traffic_label = "-"
             elif traffic_checked:
                 t_txt = {0: "원활", 1: "서행", 2: "정체"}.get(dest_traffic_lvl, "정보없음")
                 t_icon = ICONS.get(dest_traffic_lvl, "")
-                traffic_label = f"{t_icon}{t_txt}"
+                traffic_label = f"교통 {t_txt}{t_icon}"
             else:
-                traffic_label = "🟢원활"
+                # 도보 이동 등 교통 데이터가 없는 경우
+                traffic_label = "교통 원활🟢"
 
             if node["type"] == "fixed":
                 t_parts = node.get("orig_time_str").split(" - ")
@@ -808,8 +803,6 @@ class RouteOptimizerService:
             else:
                 end_dt = arrival_dt + timedelta(minutes=final_stay)
                 time_str = f"{arrival_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}{time_congestion_info}"
-                
-                # [중요] 다음 장소는 여기서 끝난 시간부터 출발
                 cursor_dt = end_dt
 
             timeline.append({

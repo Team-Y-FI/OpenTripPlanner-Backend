@@ -70,7 +70,7 @@
           "category2": "역사유적지",
           "time": "10:00 - 11:30",
           "transit_to_here": [],
-          "population_level": "🟢여유",
+          "population_level": "인구 여유🟢",
           "traffic_level": "-"
         },
         {
@@ -84,8 +84,8 @@
             "[버스][01A] : 서울신문사 → 춘추문 : 5분",
             "도보 : 8분"
           ],
-          "population_level": "🟢여유",
-          "traffic_level": "🟢원활"
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 원활🟢"
         },
         {
           "name": "국립고궁박물관",
@@ -98,8 +98,8 @@
             "[버스][종로11] : 삼청동주민센터 → 경복궁 : 6분 [🟡서행 (+2분)]",
             "도보 : 13분"
           ],
-          "population_level": "🟢여유",
-          "traffic_level": "🟡서행"
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 서행🟡"
         },
         {
           "name": "경복궁",
@@ -109,8 +109,8 @@
           "transit_to_here": [
             "도보 : 7분"
           ],
-          "population_level": "🟢여유",
-          "traffic_level": "🟢도보/원활"
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 원활🟢"
         },
         {
           "name": "광화문광장",
@@ -120,8 +120,8 @@
           "transit_to_here": [
             "도보 : 7분"
           ],
-          "population_level": "🟢여유",
-          "traffic_level": "🟢도보/원활"
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 원활🟢"
         },
         {
           "name": "명동교자",
@@ -138,8 +138,8 @@
             "[지하철][서울 2호선] : 시청 → 을지로입구 : 2분",
             "도보 : 10분"
           ],
-          "population_level": "🔴혼잡",
-          "traffic_level": "🟢원활"
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 원활🟢"
         }
       ],
       "min_transfer_version": [
@@ -149,7 +149,7 @@
           "category2": "역사유적지",
           "time": "10:00 - 11:30",
           "transit_to_here": [],
-          "population_level": "🟢여유",
+          "population_level": "인구 여유🟢",
           "traffic_level": "-"
         },
         {
@@ -163,8 +163,8 @@
             "[버스][01A] : 서울신문사 → 춘추문 : 5분",
             "도보 : 8분"
           ],
-          "population_level": "🟢여유",
-          "traffic_level": "🟢원활"
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 원활🟢"
         },
         {
           "name": "국립고궁박물관",
@@ -177,8 +177,8 @@
             "[버스][종로11] : 삼청동주민센터 → 경복궁 : 6분 [🟡서행 (+2분)]",
             "도보 : 13분"
           ],
-          "population_level": "🟢여유",
-          "traffic_level": "🟡서행"
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 서행🟡"
         },
         {
           "name": "경복궁",
@@ -188,8 +188,8 @@
           "transit_to_here": [
             "도보 : 7분"
           ],
-          "population_level": "🟢여유",
-          "traffic_level": "🟢도보/원활"
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 원활🟢"
         },
         {
           "name": "광화문광장",
@@ -199,8 +199,8 @@
           "transit_to_here": [
             "도보 : 7분"
           ],
-          "population_level": "🟢여유",
-          "traffic_level": "🟢도보/원활"
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 원활🟢"
         },
         {
           "name": "명동교자",
@@ -213,8 +213,8 @@
             "[버스][702A서오릉, 702B용두초교, 705] : 광화문 → 을지로입구역.광교 : 2분",
             "도보 : 14분"
           ],
-          "population_level": "🔴혼잡",
-          "traffic_level": "🟢원활"
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 원활🟢"
         }
       ]
     }
@@ -282,7 +282,7 @@
           "category2": "역사유적지",
           "time": "10:00 - 11:30",
           "transit_to_here": [],
-          "population_level": "🟢여유",
+          "population_level": "인구 여유🟢",
           "traffic_level": "-"
         },
         {
@@ -300,8 +300,8 @@
             "[지하철][서울 2호선] : 을지로4가 → 성수 : 13분",
             "도보 : 6분"
           ],
-          "population_level": "🟡보통",
-          "traffic_level": "🟢도보/원활"
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 원활🟢"
         },
         {
           "name": "동대문종합시장 한복상가",
@@ -316,8 +316,8 @@
             "[버스][2012, N62] : 서울숲삼부아파트 → 동대문역사문화공원 : 11분 [🟡서행 (+4분)]",
             "도보 : 10분"
           ],
-          "population_level": "🟢여유",
-          "traffic_level": "🟡서행"
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 서행🟡"
         },
         {
           "name": "장충동 족발 골목",
@@ -330,8 +330,8 @@
             "[버스][301] : 동대문 → 장충동.동국대입구 : 3분 [🟡서행 (+1분)]",
             "도보 : 2분"
           ],
-          "population_level": "🟡보통",
-          "traffic_level": "🟡서행"
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 서행🟡"
         },
         {
           "name": "차이나플레인 서울숲점",
@@ -348,8 +348,8 @@
             "[지하철][수인분당선] : 압구정로데오 → 서울숲 : 2분",
             "도보 : 7분"
           ],
-          "population_level": "🟡보통",
-          "traffic_level": "🟡서행"
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 서행🟡"
         },
         {
           "name": "서울숲",
@@ -362,8 +362,8 @@
             "[버스][성동13] : 성동구민종합체육센터 → 서울숲2번출입구 : 2분 [🟡서행 (+1분)]",
             "도보 : 4분"
           ],
-          "population_level": "🟢여유",
-          "traffic_level": "🟡서행"
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 서행🟡"
         }
       ],
       "min_transfer_version": [
@@ -373,7 +373,7 @@
           "category2": "역사유적지",
           "time": "10:00 - 11:30",
           "transit_to_here": [],
-          "population_level": "🟢여유",
+          "population_level": "인구 여유🟢",
           "traffic_level": "-"
         },
         {
@@ -391,8 +391,8 @@
             "[지하철][서울 2호선] : 을지로4가 → 성수 : 13분",
             "도보 : 6분"
           ],
-          "population_level": "🟡보통",
-          "traffic_level": "🟢도보/원활"
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 원활🟢"
         },
         {
           "name": "동대문종합시장 한복상가",
@@ -407,8 +407,8 @@
             "[버스][2012, N62] : 서울숲삼부아파트 → 동대문역사문화공원 : 11분 [🟡서행 (+4분)]",
             "도보 : 10분"
           ],
-          "population_level": "🟢여유",
-          "traffic_level": "🟡서행"
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 서행🟡"
         },
         {
           "name": "장충동 족발 골목",
@@ -421,8 +421,8 @@
             "[버스][301] : 동대문 → 장충동.동국대입구 : 3분 [🟡서행 (+1분)]",
             "도보 : 2분"
           ],
-          "population_level": "🟡보통",
-          "traffic_level": "🟡서행"
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 서행🟡"
         },
         {
           "name": "차이나플레인 서울숲점",
@@ -435,8 +435,8 @@
             "[버스][2014] : 동대문역사문화공원 → 뚝도아리수정수센터수도박물관 : 23분 [🟡서행 (+8분)]",
             "도보 : 7분"
           ],
-          "population_level": "🟡보통",
-          "traffic_level": "🟡서행"
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 서행🟡"
         },
         {
           "name": "서울숲",
@@ -446,8 +446,8 @@
           "transit_to_here": [
             "도보 : 13분"
           ],
-          "population_level": "🟡보통",
-          "traffic_level": "🟢도보/원활"
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 원활🟢"
         }
       ]
     }
