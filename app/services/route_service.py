@@ -419,8 +419,25 @@ class RouteOptimizerService:
         except: return {}
     
     def _make_cache_key(self, start_node, end_node, departure_time):
-        return (start_node.get('name'), round(start_node.get('lat',0),6), round(start_node.get('lng',0),6),
-                end_node.get('name'), round(end_node.get('lat',0),6), round(end_node.get('lng',0),6), departure_time.hour)
+        s_lat = start_node.get('lat')
+        s_lng = start_node.get('lng')
+        e_lat = end_node.get('lat')
+        e_lng = end_node.get('lng')
+
+        s_lat = s_lat if s_lat is not None else 0.0
+        s_lng = s_lng if s_lng is not None else 0.0
+        e_lat = e_lat if e_lat is not None else 0.0
+        e_lng = e_lng if e_lng is not None else 0.0
+
+        return (
+            start_node.get('name'), 
+            round(s_lat, 6), 
+            round(s_lng, 6),
+            end_node.get('name'), 
+            round(e_lat, 6), 
+            round(e_lng, 6), 
+            departure_time.hour
+        )
     
     def _get_all_detailed_paths(self, trip_legs, departure_time, transport_mode="transport"):
         if not trip_legs: return {}
