@@ -97,12 +97,14 @@ class SimpleRouteSolver:
             path=[0],
             total_cost=0,
             current_score=0,
-            arrival_times={0: self.start_min}
+            arrival_times={0: self.start_min},
+            has_lunch=False,
+            has_dinner=False
         )
 
         return self.best_path, self.best_arrival_times
 
-    def _dfs(self, curr_idx, curr_time, visited, path, total_cost, current_score, arrival_times):
+    def _dfs(self, curr_idx, curr_time, visited, path, total_cost, current_score, arrival_times, has_lunch, has_dinner):
         
         # 1. 신기록 갱신 (동일)
         if current_score > self.best_score:
@@ -120,12 +122,29 @@ class SimpleRouteSolver:
         for next_idx in range(self.n):
             if not visited[next_idx]:
                 
-                node_type = self.nodes[next_idx]["type"]
-                win_start, win_end = self.windows[next_idx]
+                node = self.nodes[next_idx]
+                node_type = node["type"]
 
                 # 이동 시간 및 도착 예상
                 travel_time = self.matrix[curr_idx][next_idx]
                 arrival = curr_time + travel_time
+                win_start, win_end = self.windows[next_idx]
+
+                # 이미 점심을 먹었다면, 다른 점심 후보는 모두 패스
+                if node_type == "lunch" and has_lunch:
+                    continue
+
+                # 이미 저녁을 먹었다면, 다른 저녁 후보는 모두 패스
+                if node_type == "dinner" and has_dinner:
+                    continue
+
+                is_duplicate_name = False
+                for p_idx in path:
+                    if self.nodes[p_idx]["name"] == node["name"]:
+                        is_duplicate_name = True
+                        break
+                if is_duplicate_name:
+                    continue
                 
                 # (A) 고정 일정
                 if node_type == "fixed":
@@ -153,12 +172,18 @@ class SimpleRouteSolver:
                     # Overlap Check
                     stay_duration = self.nodes[next_idx]["stay"]
                     temp_leave_time = start_activity + stay_duration
+
                     overlap = False
+                    SAFETY_BUFFER = 20
+
                     for f_idx in range(self.n):
                         if self.nodes[f_idx]["type"] == "fixed":
                             f_start = self.windows[f_idx][0]
                             f_end_act = f_start + self.nodes[f_idx]["stay"]
-                            if not (temp_leave_time <= f_start or start_activity >= f_end_act):
+                            condition_before = (temp_leave_time + SAFETY_BUFFER <= f_start)
+                            condition_after = (start_activity >= f_end_act)
+
+                            if not (condition_before or condition_after):
                                 overlap = True
                                 break
                     if overlap: continue
@@ -177,32 +202,35 @@ class SimpleRouteSolver:
                 
                 # 1. 점수 배점
                 if node_type == "fixed":
-                    node_score = 2000     # 고정 일정 (최우선)
+                    node_score = 2000     
                 elif node_type in ["lunch", "dinner"]:
-                    node_score = 500      # 식사
+                    node_score = 500      
                 else:
-                    node_score = 50       # 관광지
+                    node_score = 50       
 
-                # 2. 대기 시간 페널티 (현장에서 멍하니 기다리는 시간)
+                # 2. 대기 시간 페널티 (30분 초과 시 강력 제재)
                 if wait_time > 30:
                     penalty_cost += (wait_time - 30) * 10
-
-                # 3. [추가됨] 아침 게으름 방지 페널티 (Late Start Penalty)
-                # 첫 번째 방문지(len(path)==1)인데, 활동 시작(start_activity)이 
-                # 계획된 시작 시간(self.start_min)보다 너무 늦어지면 감점!
+                
+                # 3. 아침 게으름 방지 (Morning Penalty)
+                # 첫 일정 시작이 계획된 시간보다 40분 이상 늦어지면 감점
                 if len(path) == 1:
-                    # 예: 10:00 시작인데 11:30에 활동 시작하면 90분 지연
-                    # 이동 시간 고려해서 40분 정도는 봐줌 (Travel Buffer)
                     delay_from_start = start_activity - self.start_min
-                    
                     if delay_from_start > 40:
-                        # 1분 늦게 시작할 때마다 10점씩 감점
-                        # (11:00 시작하는 식당을 첫 행선지로 잡으면 감점 -> 10:00 오픈하는 관광지 선호하게 됨)
                         penalty_cost += (delay_from_start - 40) * 10
+
+                # 4. 이동 효율성 (Distance Penalty)
+                # 이동 시간이 길수록 감점 (가까운 식당 선호 유도)
+                penalty_cost += travel_time * 2
+                if travel_time > 40: # 40분 이상 이동은 비효율로 간주
+                    penalty_cost += (travel_time - 40) * 10
 
                 visited[next_idx] = True
                 path.append(next_idx)
-                arrival_times[next_idx] = arrival 
+                arrival_times[next_idx] = arrival
+
+                next_has_lunch = has_lunch or (node_type == "lunch")
+                next_has_dinner = has_dinner or (node_type == "dinner")
 
                 self._dfs(
                     next_idx, 
@@ -211,7 +239,9 @@ class SimpleRouteSolver:
                     path, 
                     total_cost + travel_time + wait_time + penalty_cost, 
                     current_score + node_score - penalty_cost, 
-                    arrival_times
+                    arrival_times,
+                    next_has_lunch, 
+                    next_has_dinner
                 )
 
                 path.pop()
@@ -625,16 +655,18 @@ class RouteOptimizerService:
         # 시작점 (Depot) - 첫 번째 장소 근처 혹은 서울 시청 등 (여기선 places의 첫번째 좌표 활용)
         first_loc = places[0] if places else {"lat": 37.5665, "lng": 126.9780}
 
+        # 1. 시작점 (Depot)
         nodes.append({
                 "name": "시작점",
                 "category": "출발",
                 "category2": "",
-                "lat": first_loc.get("lat"),
-                "lng": first_loc.get("lng"),
+                "lat": places[0]["lat"] if places else 37.5665,
+                "lng": places[0]["lng"] if places else 126.9780,
                 "stay": 0,
                 "type": "depot"
                 })
         
+        # 2. 관광지 추가
         for p in places:
             nodes.append({
                 "name": p["name"],
@@ -644,29 +676,26 @@ class RouteOptimizerService:
                 "stay": stay_time_map.get(p.get("category"), 60),
                 "type": "spot"
                 })
+        
+        # 3. 식당 후보군 전체 등록
+        for r in restaurants:
+            nodes.append({
+                "name": r["name"],
+                "category": "음식점",
+                "category2": r.get("category2", "음식점"),
+                "lat": r.get("lat"), "lng": r.get("lng"),
+                "stay": 70,
+                "type": "lunch"  # 점심 타입
+                })
             
-        if len(restaurants) > 0:
-            r = restaurants[0]
             nodes.append({
                 "name": r["name"],
                 "category": "음식점",
                 "category2": r.get("category2", "음식점"),
-                "lat": r.get("lat"),
-                "lng": r.get("lng"),
+                "lat": r.get("lat"), "lng": r.get("lng"),
                 "stay": 70,
-                "type": "lunch"
-            })
-        if len(restaurants) > 1:
-            r = restaurants[1]
-            nodes.append({
-                "name": r["name"],
-                "category": "음식점",
-                "category2": r.get("category2", "음식점"),
-                "lat": r.get("lat"),
-                "lng": r.get("lng"),
-                "stay": 70,
-                "type": "dinner"
-            })
+                "type": "dinner" # 저녁 타입
+                })
         
         # 고정 일정 빌더 호출
         nodes.extend(self._build_fixed_nodes(fixed_events, day_start_dt))
