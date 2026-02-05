@@ -774,7 +774,7 @@ class RouteOptimizerService:
                 pop_txt = {0: "여유", 1: "보통", 2: "혼잡"}.get(pop_lvl, "정보없음")
                 icon = ICONS.get(pop_lvl, "")
                 
-                # [수정] 인구 라벨 포맷 변경 (👥 인구 상태🟢)
+                # [수정] 인구 라벨 포맷 변경 (인구 상태🟢)
                 pop_label = f"인구 {pop_txt}{icon}"
                 
                 if add_stay > 0:
@@ -784,7 +784,7 @@ class RouteOptimizerService:
                 pop_label = "고정일정"
 
             # 4. 타임라인 문자열 조립
-            # [수정] 교통 라벨 포맷 변경 (🚗 교통 상태🟡)
+            # [수정] 교통 라벨 포맷 변경 (교통 상태🟡)
             traffic_label = "-"
             if i == 1: 
                 traffic_label = "-"
