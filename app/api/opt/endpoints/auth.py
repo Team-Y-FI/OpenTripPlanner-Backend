@@ -1,5 +1,6 @@
 # app/api/endpoints/auth.py
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
+import logging
 from fastapi.responses import RedirectResponse, JSONResponse
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,7 @@ from app.services.auth_service import AuthService
 from app.core.config import settings
 
 router = APIRouter(tags=["auth"])
+logger = logging.getLogger(__name__)
 
 REFRESH_COOKIE_NAME = "refresh_token"
 KAKAO_AUTH_URL = "https://kauth.kakao.com/oauth/authorize"
@@ -18,26 +20,19 @@ KAKAO_TOKEN_URL = "https://kauth.kakao.com/oauth/token"
 KAKAO_ME_URL = "https://kapi.kakao.com/v2/user/me"
 
 
-def _refresh_cookie_params() -> dict:
-    max_age = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
-
-    env = (settings.ENV or "").lower()
-    if env in {"dev", "local", "development"}:
-        return {
-            "httponly": True,
-            "secure": False,
-            "samesite": "lax",
-            "path": "/",
-            "max_age": max_age,
-        }
-
-    return {
-        "httponly": True,
-        "secure": True,
-        "samesite": "none",
-        "path": "/",
-        "max_age": max_age,
-    }
+def _refresh_cookie_params():
+    # local/dev에서 http면 secure 때문에 쿠키가 안 박힐 수 있어.
+    # 지금 네 테스트는 "웹/로컬 + Expo Go"라 http 환경 가능성이 높으니,
+    # 운영에선 secure=True로 올리되, 개발에선 설정으로 분기하는 게 베스트.
+    secure = bool(getattr(settings, "COOKIE_SECURE", False))
+    samesite = getattr(settings, "COOKIE_SAMESITE", "lax")
+    return dict(
+        httponly=True,
+        secure=secure,
+        samesite=samesite,
+        path="/",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+    )
 
 
 class SendVerificationIn(BaseModel):
@@ -64,7 +59,7 @@ class LoginIn(BaseModel):
 
 
 class KakaoTokenIn(BaseModel):
-    access_token: str = Field(min_length=1)
+    access_token: str
 
 
 @router.post("/send-verification")
@@ -131,30 +126,47 @@ async def logout(request: Request, response: Response, db: AsyncSession = Depend
 
 
 @router.get("/kakao/login")
-async def kakao_login_redirect():
-    if not settings.KAKAO_CLIENT_ID or not settings.KAKAO_REDIRECT_URI:
-        raise HTTPException(status_code=500, detail="KAKAO_CLIENT_ID / KAKAO_REDIRECT_URI 설정이 필요합니다.")
+async def kakao_login_redirect(redirect_uri: str | None = None):
+    if not getattr(settings, "KAKAO_CLIENT_ID", None):
+        raise HTTPException(status_code=500, detail="KAKAO_CLIENT_ID 설정이 필요합니다.")
+
+    # ✅ 프론트가 넘긴 redirect_uri(exp://...)를 사용 (팀원 각자 Expo Go 테스트)
+    ru = redirect_uri or getattr(settings, "KAKAO_REDIRECT_URI", None)
+    if not ru:
+        raise HTTPException(status_code=500, detail="KAKAO_REDIRECT_URI 설정이 필요합니다.")
+
+    logger.info("[kakao] login redirect_uri=%s", ru)
 
     params = {
         "client_id": settings.KAKAO_CLIENT_ID,
-        "redirect_uri": settings.KAKAO_REDIRECT_URI,
+        "redirect_uri": ru,
         "response_type": "code",
         "scope": "account_email profile_nickname",
     }
     return RedirectResponse(url=f"{KAKAO_AUTH_URL}?{urlencode(params)}")
 
 @router.get("/kakao/callback")
-async def kakao_callback(code: str | None = None, db: AsyncSession = Depends(get_db)):
+async def kakao_callback(
+    code: str | None = None,
+    redirect_uri: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
     if not code:
         raise HTTPException(status_code=400, detail="인가 코드(code)가 없습니다.")
+
+    ru = redirect_uri or getattr(settings, "KAKAO_REDIRECT_URI", None)
+    if not ru:
+        raise HTTPException(status_code=500, detail="KAKAO_REDIRECT_URI 설정이 필요합니다.")
+
+    logger.info("[kakao] callback redirect_uri=%s", ru)
 
     data = {
         "grant_type": "authorization_code",
         "client_id": settings.KAKAO_CLIENT_ID,
-        "redirect_uri": settings.KAKAO_REDIRECT_URI,
+        "redirect_uri": ru,
         "code": code,
     }
-    if settings.KAKAO_CLIENT_SECRET:
+    if getattr(settings, "KAKAO_CLIENT_SECRET", None):
         data["client_secret"] = settings.KAKAO_CLIENT_SECRET
 
     async with httpx.AsyncClient(timeout=10.0) as client:
@@ -163,11 +175,10 @@ async def kakao_callback(code: str | None = None, db: AsyncSession = Depends(get
             data=data,
             headers={"Content-Type": "application/x-www-form-urlencoded;charset=utf-8"},
         )
-
     if token_res.status_code != 200:
         raise HTTPException(status_code=401, detail=f"Kakao token 교환 실패: {token_res.text}")
 
-    kakao_access_token = token_res.json().get("access_token")
+    kakao_access_token = (token_res.json() or {}).get("access_token")
     if not kakao_access_token:
         raise HTTPException(status_code=401, detail="Kakao access_token이 없습니다.")
 
@@ -176,14 +187,12 @@ async def kakao_callback(code: str | None = None, db: AsyncSession = Depends(get
             KAKAO_ME_URL,
             headers={"Authorization": f"Bearer {kakao_access_token}"},
         )
-
     if me_res.status_code != 200:
         raise HTTPException(status_code=401, detail=f"Kakao user 조회 실패: {me_res.text}")
 
-    me = me_res.json()
+    me = me_res.json() or {}
     kakao_account = me.get("kakao_account") or {}
     profile = kakao_account.get("profile") or {}
-
     email = kakao_account.get("email")
     nickname = profile.get("nickname") or "KakaoUser"
 
@@ -200,34 +209,31 @@ async def kakao_callback(code: str | None = None, db: AsyncSession = Depends(get
 
 
 @router.post("/kakao/token")
-async def kakao_token_login(body: KakaoTokenIn, db: AsyncSession = Depends(get_db)):
-    """
-    모바일/앱 클라이언트용: Kakao SDK로 발급받은 access_token을 받아
-    서버에서 사용자 정보를 조회한 뒤, 우리 서비스 JWT를 발급합니다.
-    """
+async def kakao_token(body: KakaoTokenIn, response: Response, db: AsyncSession = Depends(get_db)):
+    # 네이티브 SDK(Dev Client/배포)에서 access_token을 직접 받을 때용
+    if not body.access_token:
+        raise HTTPException(status_code=400, detail="access_token이 없습니다.")
+
     async with httpx.AsyncClient(timeout=10.0) as client:
         me_res = await client.get(
             KAKAO_ME_URL,
             headers={"Authorization": f"Bearer {body.access_token}"},
         )
-
     if me_res.status_code != 200:
         raise HTTPException(status_code=401, detail=f"Kakao user 조회 실패: {me_res.text}")
 
-    me = me_res.json()
+    me = me_res.json() or {}
     kakao_account = me.get("kakao_account") or {}
     profile = kakao_account.get("profile") or {}
-
     email = kakao_account.get("email")
     nickname = profile.get("nickname") or "KakaoUser"
 
     svc = AuthService(db)
     tokens = await svc.kakao_login(email=str(email) if email else "", nickname=nickname)
 
-    res = JSONResponse(content={"access_token": tokens["access_token"]})
-    res.set_cookie(
+    response.set_cookie(
         key=REFRESH_COOKIE_NAME,
         value=tokens["refresh_token"],
         **_refresh_cookie_params(),
     )
-    return res
+    return {"access_token": tokens["access_token"]}
