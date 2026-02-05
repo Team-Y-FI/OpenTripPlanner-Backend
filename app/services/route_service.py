@@ -126,10 +126,6 @@ class SimpleRouteSolver:
                 # 이동 시간 및 도착 예상
                 travel_time = self.matrix[curr_idx][next_idx]
                 arrival = curr_time + travel_time
-
-                # ---------------------------------------------------
-                # [수정] 고정 일정(Fixed) vs 일반 일정 분기 처리
-                # ---------------------------------------------------
                 
                 # (A) 고정 일정인 경우: 정해진 시간에만 수행 가능
                 if node_type == "fixed":
