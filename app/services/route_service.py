@@ -899,9 +899,18 @@ class RouteOptimizerService:
         for idx, node in enumerate(nodes): node["id"] = int(idx)
         n = len(nodes)
 
-        # [최적화 옵션] 현실 모드 적용 (체류 시간 뻥튀기 해제)
-        # 기존에는 안전율 1.2배를 적용했으나, 빡빡한 일정 소화를 위해 원본 그대로 사용
-        solver_nodes = nodes 
+        # [최적화 옵션] 여유 모드
+        solver_nodes = copy.deepcopy(nodes)
+
+        for node in solver_nodes:
+            if node["type"] == "spot":
+                node["stay"] = int(node["stay"] * 1.1)
+
+            elif node["type"] in ["lunch", "dinner"]:
+                node["stay"] = int(node["stay"] * 1.2)
+            
+            elif node["type"] in ["fixed", "depot"]:
+                pass
 
         # 3. 이동 시간 매트릭스 생성 (R5PY + Haversine)
         # 교통 혼잡도 반영을 위해 11시 기준 예측 사용
@@ -922,7 +931,7 @@ class RouteOptimizerService:
                         val = max(val, 30)
                 
                 # [이동 시간 여유] 10% 추가 (기존 30% -> 10%로 축소)
-                val = int(val * 1.1) 
+                val = int(val * 1.1)
                 time_matrix[i][j] = int(val)
 
 
