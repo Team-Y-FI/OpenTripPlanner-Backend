@@ -33,6 +33,7 @@ GTFS_FILES = ["./data/seoul_area_gtfs.zip"]
 TN_CACHE_PATH = "./data/seoul_tn_cached.pkl"
 META_CACHE_PATH = "./data/metadata_cache_v2.pkl"
 RESULT_JSON_PATH = "result.json"
+RESULT_FINAL_PATH = "result_timeline.json"
 
 KOREAN_HOLIDAYS_2026 = [
     '20260101', '20260216', '20260217', '20260218', '20260301', '20260302',
@@ -60,8 +61,8 @@ SEOUL_GU_COORDS = {
 FALLBACK_MOVE_MIN = 30
 MAX_TRANSFERS = 2
 MAX_TRAVEL_TIME_MIN = 90
-LUNCH_WINDOW = ("11:20", "13:20")
-DINNER_WINDOW = ("17:40", "19:30")
+LUNCH_WINDOW = ("11:00", "14:00")
+DINNER_WINDOW = ("17:00", "20:00")
 
 stay_time_map = {
     "관광지": 90, "카페": 50, "음식점": 70,
@@ -134,24 +135,19 @@ class SimpleRouteSolver:
                 wait_time = 0
                 if arrival < win_start:
                     wait_time = win_start - arrival
-
-                # 유연한 출발 (첫 장소 대기 무시)
-                if len(path) == 1: 
-                    wait_time = 0
-
-                # (C) 식사 대기 페널티 (30분 넘으면 비용 증가, 그러나 방문은 허용)
-                penalty_cost = 0
+                
+                # '식당'이 첫 장소인데 대기가 길다면, 그 시간에 '관광지'를 다녀오는 게 이득이므로 비용을 그대로 둔다.
                 node_type = self.nodes[next_idx]["type"]
 
-                # [점수 계산] 식사는 10점, 나머지는 1점
-                node_score = 10 if node_type in ["lunch", "dinner"] else 1
-
-                if node_type in ["lunch", "dinner"]:
-                    if wait_time > 30:
-                        penalty_cost = (wait_time - 30) * 10
+                # 식당은 오픈런 대기 시간을 '비용'으로 인식시켜서, 가능하다면 앞에 다른 관광지를 끼워 넣도록 유도함
+                if len(path) == 1: 
+                    if node_type in ["lunch", "dinner"]:
+                        pass
+                    else:
+                        wait_time = 0
 
                 # 3. 활동 종료 시간
-                if len(path) == 1 and arrival < win_start:
+                if len(path) == 1 and arrival < win_start and node_type not in ["lunch", "dinner"]:
                     start_activity = win_start
                 else:
                     start_activity = arrival + wait_time
@@ -159,9 +155,20 @@ class SimpleRouteSolver:
                 stay_duration = self.nodes[next_idx]["stay"]
                 leave_time = start_activity + stay_duration
 
-                # (D) 하루 종료 시간 초과 체크
+                penalty_cost = 0
+                node_score = 100 if node_type in ["lunch", "dinner"] else 1
+
+                if node_type in ["lunch", "dinner"]:
+                    if wait_time > 20:
+                        penalty_cost += (wait_time - 30) * 10
+                
+                # 종료 시간(타임테이블) 초과 페널티
                 if leave_time > self.max_horizon:
-                    continue
+                    if node_type in ["lunch", "dinner"]:
+                        penalty_cost += (leave_time - self.max_horizon) * 50
+                    else:
+                        node_score = 0.1
+                        penalty_cost += (leave_time - self.max_horizon) * 100
 
                 # 4. 재귀 호출
                 visited[next_idx] = True
@@ -686,7 +693,7 @@ class RouteOptimizerService:
                 if arrival_dt < win_start:
                     wait_min = int((win_start - arrival_dt).total_seconds() / 60)
                     if wait_min > 0:
-                        transit_info.append(f"⏳ 오픈 대기 : {wait_min}분")
+                        transit_info.append(f"남는 시간 : {wait_min}분")
                         arrival_dt = win_start # 대기 후 입장
 
             # 3. 체류 시간 및 라벨링
@@ -771,7 +778,7 @@ class RouteOptimizerService:
         solver_nodes = copy.deepcopy(nodes)
         for node in solver_nodes:
             if node["type"] not in ["fixed", "depot"]:
-                node["stay"] = int(node["stay"] * 1.1)
+                node["stay"] = int(node["stay"] * 1.2)
 
         # 3. 이동 시간 매트릭스 생성 (R5PY + Haversine)
         r5_dep = datetime.combine(base_date, datetime.strptime("11:00", "%H:%M").time())
@@ -790,7 +797,7 @@ class RouteOptimizerService:
                         val = max(val, 30)
                 
                 # 이동 시간 20% 여유(Safety Margin) 추가
-                val = int(val * 1.2)
+                val = int(val * 1.3)
                 
                 time_matrix[i][j] = int(val)
         
@@ -803,7 +810,7 @@ class RouteOptimizerService:
         d_s, d_e = to_min(DINNER_WINDOW[0]), to_min(DINNER_WINDOW[1])
 
         # 식사 마감 시간 20분 앞당기기 (Safety Margin)
-        SAFETY_MARGIN = 20
+        SAFETY_MARGIN = 10
 
         windows = []
         for node in nodes:
@@ -883,14 +890,18 @@ class RouteOptimizerService:
                 "route": [{"name": "...", "category": "...", "category2": "...", "lat": 0.0, "lng": 0.0}],
                 "restaurants": [{"name": "...", "category": "...", "category2": "...", "lat": 0.0, "lng": 0.0}],
                 "accommodations": [{"name": "...", "category": "...", "category2": "...", "lat": 0.0, "lng": 0.0}]
-                }
+                },
+                "day2": { "...(days 수만큼 반복)..." }
             }
         }
         """
         
         system_prompt = f"""
         너는 '서울 여행 장소 추천 전문가'이다. 반드시 제공된 데이터만을 사용하여 계획을 세운다.
-        출력 형식: {schema}
+        [입력 정보]
+        여행 기간: 총 {days}일 (입력된 days 값에 맞춰 'day1'부터 'day{days}'까지 생성할 것)
+        [출력 형식]
+        {schema}
         [절대 규칙]
         1. 모든 장소의 이름, 좌표(lat, lng), 카테고리는 입력된 데이터와 100% 일치해야 한다.
         2. 'route' 배열: 제공된 'places' 목록에서 5개를 선택
@@ -900,8 +911,11 @@ class RouteOptimizerService:
         """
 
         user_prompt = {
-            "days": days, "start_location": {"lat": 37.5547, "lng": 126.9706},
-            "places": places, "restaurants": restaurants, "accommodations": accommodations
+            "days": days,
+            "start_location": {"lat": 37.5547, "lng": 126.9706},
+            "places": places,
+            "restaurants": restaurants,
+            "accommodations": accommodations
         }
         
         try:
@@ -933,13 +947,13 @@ class RouteOptimizerService:
         df = self.df_places.copy()
         df['dist'] = df.apply(lambda r: self._haversine(center['lat'], center['lon'], r['lat'], r['lng']), axis=1)
         
-        places = df[(df['dist']<=REDIUS) & (~df['category'].isin(['음식점','숙박']))].to_dict('records')
+        places = df[(df['dist']<=REDIUS) & (~df['category'].isin(['음식점','숙박']))][["name", "category", "category2", "lat", "lng"]].to_dict('records')
         print(f"'{request.region}' 중심 반경 {REDIUS}km 내 관광 장소 개수 {len(places)}개")
 
-        restaurants = df[(df['dist']<=REDIUS) & (df['category']=='음식점')].to_dict('records')
+        restaurants = df[(df['dist']<=REDIUS) & (df['category']=='음식점')][["name", "category", "category2", "lat", "lng"]].to_dict('records')
         print(f"'{request.region}' 중심 반경 {REDIUS}km 내 음식점 개수 {len(restaurants)}개")
 
-        accommodations = df[(df['dist']<=REDIUS) & (df['category']=='숙박')].to_dict('records')
+        accommodations = df[(df['dist']<=REDIUS) & (df['category']=='숙박')][["name", "category", "category2", "lat", "lng"]].to_dict('records')
         print(f"'{request.region}' 중심 반경 {REDIUS}km 내 숙박시설 개수 {len(accommodations)}개")
         
         # 2. 날짜 계산
@@ -1015,6 +1029,9 @@ class RouteOptimizerService:
 
         total_end_time = time.time()
         print(f"[Total] 전체 프로세스 완료: {total_end_time - total_start_time:.2f}초")
+
+        with open(RESULT_FINAL_PATH, "w", encoding="utf-8") as f:
+                json.dump(final_result, f, ensure_ascii=False, indent=2)
 
         return final_result
 route_service = RouteOptimizerService()

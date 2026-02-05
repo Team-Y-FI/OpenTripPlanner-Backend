@@ -5,17 +5,16 @@ from app.core.exceptions import AppError
 from app.services.route_service import route_service
 from app.schemas.plan import PlanGenerateRequest, FixedEvent
 
-# [주석 처리] DB 관련 임포트
-# from sqlalchemy.ext.asyncio import AsyncSession
-# from app.models.plan import Plan, SavedPlan
-# from app.repositories.plan_repo import PlanRepository
+# DB 관련 임포트
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.plan import Plan, SavedPlan
+from app.repositories.plan_repo import PlanRepository
+from typing import List, Optional
 
 class PlanService:
     def __init__(self, db):
-        # DB 세션은 받지만 사용하지 않음
         self.db = db
-        # [주석 처리] 레포지토리 초기화
-        # self.repo = PlanRepository(db)
+        self.repo = PlanRepository(db)
 
     async def generate(self, user_id: str, payload: dict):
         """
@@ -62,46 +61,165 @@ class PlanService:
             print(f"❌ [PlanService] 알고리즘 에러: {e}")
             raise AppError("generation_failed", str(e), 500)
 
-        # 4. DB 저장 로직 (원래 코드 복원 형태)
-        # plan = Plan(
-        #     user_id=user_id,                      # 요청한 유저 ID
-        #     region=payload["region"],             # 여행 지역 (예: 강남구)
-        #     start_date=payload["start_date"],     # (옵션) 시작일 - 모델에 있다면
-        #     end_date=payload["end_date"],         # (옵션) 종료일 - 모델에 있다면
-        #     variants_json=generated_plans_json    # ★ 핵심: 알고리즘이 만든 경로 결과 (JSON)
-        # )
-        
-        # # 레포지토리를 통해 DB에 INSERT 하고, 저장된 객체를 반환
-        # return await self.repo.create_plan(plan)
-
-        # 5. 결과 반환 (DB 저장 없이 딕셔너리로 바로 리턴)
-        return {
-            "plan_id": "temp_no_db_id", 
+        # 4. DB 저장 로직
+        # Plan 모델에 맞춰 데이터 준비
+        # variants_json에 summary 정보 포함 (API 응답 구조 유지)
+        variants_with_summary = {
+            **generated_plans_json,
             "summary": {
                 "region": payload["region"],
                 "start_date": payload["start_date"],
                 "end_date": payload["end_date"],
                 "transport": payload.get("transport", "public"),
                 "crowd_mode": payload.get("crowd_mode", "default"),
-                "transport_mode": request_data.transport_mode # 결과 확인용 추가
-            },
-            "variants": generated_plans_json # 실제 알고리즘 결과
+                "transport_mode": request_data.transport_mode
+            }
+        }
+        
+        # Plan 생성 (모델 필드에 맞춤)
+        plan = Plan(
+            user_id=user_id,
+            region=payload["region"],
+            date=payload["start_date"],  # 시작일을 date 필드에 저장
+            start_time=payload.get("first_day_start_time", "09:00"),  # 기본값 설정
+            duration_hours=0.0,  # 다일 여행의 경우 duration_hours 계산 필요하지만 일단 0
+            transport=payload.get("transport_mode", "transport"),
+            crowd_mode=payload.get("crowd_mode", "default"),
+            purposes=payload.get("purposes", []),
+            categories=payload.get("categories", []),
+            seed_spot_ids=payload.get("seed_spot_ids"),
+            variants_json=variants_with_summary  # summary 포함한 variants_json 저장
+        )
+        
+        # DB에 저장
+        plan = await self.repo.create_plan(plan)
+        
+        # 5. API 응답 형식으로 반환
+        return {
+            "plan_id": plan.plan_id,
+            "summary": variants_with_summary["summary"],
+            "variants": generated_plans_json  # summary 제외한 순수 variants만 반환
         }
 
     # -------------------------------------------------------
     # DB 의존 메서드들 (전부 주석 처리 또는 에러 처리)
     # -------------------------------------------------------
     async def get_plan(self, user_id: str, plan_id: str):
-        raise AppError("not_implemented", "DB disabled for testing", 501)
+        """Plan 조회"""
+        plan = await self.repo.get_plan(user_id, plan_id)
+        if not plan:
+            raise AppError("plan_not_found", f"Plan not found: {plan_id}", 404)
+        return plan
 
     async def save_plan(self, user_id: str, plan_id: str, title: str | None):
-        raise AppError("not_implemented", "DB disabled for testing", 501)
+        """
+        저장된 플랜 생성
+        - plan_id로 Plan 조회
+        - 이미 저장된 플랜인지 확인 (중복 방지)
+        - SavedPlan 생성 및 저장
+        """
+        # 1. Plan 조회 (plan_id가 "temp_no_db_id"인 경우는 variants_json이 없으므로 에러)
+        plan = await self.repo.get_plan(user_id, plan_id)
+        if not plan:
+            raise AppError("plan_not_found", f"Plan not found: {plan_id}", 404)
+        
+        # 2. 이미 저장된 플랜인지 확인 (중복 방지)
+        existing = await self.repo.get_saved_by_plan_id(user_id, plan_id)
+        if existing:
+            # 이미 저장된 경우 기존 saved_plan_id 반환
+            return existing
+        
+        # 3. variants_json에서 start_date, end_date 추출 (API 응답 구조에 맞춤)
+        variants = plan.variants_json or {}
+        start_date = None
+        end_date = None
+        
+        # variants_json에 summary가 있는 경우 (generate에서 저장한 구조)
+        if isinstance(variants, dict):
+            summary = variants.get("summary")
+            if isinstance(summary, dict):
+                start_date = summary.get("start_date")
+                end_date = summary.get("end_date")
+        
+        # summary에서 추출 실패 시 plan.date 사용 (단일 날짜)
+        if not start_date:
+            start_date = plan.date
+        if not end_date:
+            end_date = plan.date
+        
+        # 4. SavedPlan 생성
+        saved_plan = SavedPlan(
+            user_id=user_id,
+            plan_id=plan_id,
+            title=title,
+            region=plan.region,
+            date=start_date,  # 시작일 사용
+        )
+        
+        # 5. DB에 저장
+        saved_plan = await self.repo.create_saved_plan(saved_plan)
+        
+        return saved_plan
 
     async def list_saved_plans(self, user_id: str, limit: int = 20):
-        return []
+        """저장된 플랜 목록 조회"""
+        return await self.repo.list_saved_plans(user_id, limit=limit)
 
     async def get_saved_plan(self, user_id: str, saved_plan_id: str):
-        raise AppError("not_implemented", "DB disabled for testing", 501)
+        """저장된 플랜 상세 조회"""
+        saved_plan = await self.repo.get_saved_plan(user_id, saved_plan_id)
+        if not saved_plan:
+            raise AppError("saved_plan_not_found", f"Saved plan not found: {saved_plan_id}", 404)
+        
+        plan = await self.repo.get_plan(user_id, saved_plan.plan_id)
+        if not plan:
+            raise AppError("plan_not_found", f"Plan not found: {saved_plan.plan_id}", 404)
+        
+        return saved_plan, plan
 
     async def list_saved_plans_by_spot(self, user_id: str, spot_id: str, limit: int = 20):
-        return []
+        """특정 장소와 연결된 저장된 플랜 목록 조회"""
+        return await self.repo.list_saved_plans_by_spot(user_id, spot_id, limit=limit)
+
+    async def recommend_alternative_spots(self, user_id: str, plan_id: str, day: str, spot_names: List[str], categories: Optional[List[str]] = None, region: Optional[str] = None):
+        """
+        대체 장소 추천
+        - plan_id로 Plan 조회하여 지역 정보 가져오기 (없으면 region 파라미터 사용)
+        - 제외할 장소들의 카테고리 추출
+        - route_service를 통해 대체 장소 추천
+        """
+        plan_region = region
+        
+        # Plan 조회 시도 (plan_id가 "temp_no_db_id"인 경우는 조회 실패)
+        if plan_id and plan_id != "temp_no_db_id":
+            plan = await self.repo.get_plan(user_id, plan_id)
+            if plan:
+                plan_region = plan.region
+                
+                # variants_json에서 해당 날짜의 장소 정보 가져오기
+                variants = plan.variants_json or {}
+                day_data = variants.get(day)
+                
+                # 제외할 장소들의 카테고리 추출 (카테고리 미지정 시)
+                if not categories and day_data:
+                    route = day_data.get('route', [])
+                    restaurants = day_data.get('restaurants', [])
+                    accommodations = day_data.get('accommodations', [])
+                    
+                    all_spots = route + restaurants + accommodations
+                    spot_map = {s.get('name'): s.get('category') for s in all_spots if isinstance(s, dict)}
+                    categories = list(set([spot_map.get(name) for name in spot_names if spot_map.get(name)]))
+        
+        # region이 없으면 에러
+        if not plan_region:
+            raise AppError("region_required", "Region is required for alternative spot recommendation", 400)
+        
+        # route_service를 통해 대체 장소 추천
+        alternatives = route_service.recommend_alternative_spots(
+            region=plan_region,
+            exclude_names=spot_names,
+            categories=categories if categories else None,
+            limit=10
+        )
+        
+        return alternatives
