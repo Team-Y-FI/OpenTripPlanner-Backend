@@ -799,7 +799,7 @@ class RouteOptimizerService:
                 t_icon = ICONS.get(dest_traffic_lvl, "")
                 traffic_label = f"{t_icon}{t_txt}"
             else:
-                traffic_label = "🟢도보/원활"
+                traffic_label = "🟢원활"
 
             if node["type"] == "fixed":
                 t_parts = node.get("orig_time_str").split(" - ")
