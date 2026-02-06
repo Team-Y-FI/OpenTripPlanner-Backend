@@ -1165,7 +1165,8 @@ class RouteOptimizerService:
             }
             target_cats = []
             for c in categories:
-                target_cats.extend(CAT_MAP.get(c, [c]))
+                val = CAT_MAP.get(c, c)
+                target_cats.append(val)
             
             if target_cats:
                 places = places & (df['category'].isin(target_cats))
