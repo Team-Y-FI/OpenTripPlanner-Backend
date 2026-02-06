@@ -41,6 +41,8 @@ google-genai
 # Utilities
 python-dotenv
 exifread
+Pillow==10.4.0
+pillow-heif==0.20.0
 
 #
 email-validator==2.1.1
