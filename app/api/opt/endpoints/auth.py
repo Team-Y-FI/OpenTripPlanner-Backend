@@ -15,24 +15,6 @@ router = APIRouter(tags=["auth"])
 logger = logging.getLogger(__name__)
 
 REFRESH_COOKIE_NAME = "refresh_token"
-KAKAO_AUTH_URL = "https://kauth.kakao.com/oauth/authorize"
-KAKAO_TOKEN_URL = "https://kauth.kakao.com/oauth/token"
-KAKAO_ME_URL = "https://kapi.kakao.com/v2/user/me"
-
-
-def _refresh_cookie_params():
-    # local/dev에서 http면 secure 때문에 쿠키가 안 박힐 수 있어.
-    # 지금 네 테스트는 "웹/로컬 + Expo Go"라 http 환경 가능성이 높으니,
-    # 운영에선 secure=True로 올리되, 개발에선 설정으로 분기하는 게 베스트.
-    secure = bool(getattr(settings, "COOKIE_SECURE", False))
-    samesite = getattr(settings, "COOKIE_SAMESITE", "lax")
-    return dict(
-        httponly=True,
-        secure=secure,
-        samesite=samesite,
-        path="/",
-        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
-    )
 
 
 class SendVerificationIn(BaseModel):
@@ -92,7 +74,11 @@ async def login(body: LoginIn, response: Response, db: AsyncSession = Depends(ge
     response.set_cookie(
         key=REFRESH_COOKIE_NAME,
         value=tokens["refresh_token"],
-        **_refresh_cookie_params(),
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
     return {"access_token": tokens["access_token"]}
 
@@ -109,7 +95,11 @@ async def refresh(request: Request, response: Response, db: AsyncSession = Depen
     response.set_cookie(
         key=REFRESH_COOKIE_NAME,
         value=tokens["refresh_token"],
-        **_refresh_cookie_params(),
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
     return {"access_token": tokens["access_token"]}
 

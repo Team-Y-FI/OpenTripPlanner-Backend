@@ -34,6 +34,10 @@ class RecordService:
             if not place.get("name") or not place.get("category") or place.get("lat") is None or place.get("lng") is None:
                 raise AppError("bad_request", "Invalid place", 400)
 
+            memo = it.get("memo")
+            if isinstance(memo, str) and not memo.strip():
+                memo = None
+
             spots.append(
                 Spot(
                     user_id=user_id,
@@ -44,6 +48,7 @@ class RecordService:
                     lat=place["lat"],
                     lng=place["lng"],
                     visited_at=it["visited_at"],
+                    memo=memo,
                 )
             )
 

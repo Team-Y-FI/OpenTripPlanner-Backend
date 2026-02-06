@@ -26,6 +26,7 @@ class UploadRepository:
         exif_lat: float | None,
         exif_lng: float | None,
         taken_at,
+        place_address: str | None = None,
     ) -> Photo:
         ph = Photo(
             upload_id=upload_id,
@@ -35,6 +36,7 @@ class UploadRepository:
             exif_lat=exif_lat,
             exif_lng=exif_lng,
             taken_at=taken_at,
+            place_address=place_address,
         )
         self.db.add(ph)
         await self.db.commit()
