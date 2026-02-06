@@ -43,7 +43,7 @@ async def list_spots(
         ph = photo_map.get(s.photo_id) if s.photo_id else None
         return {
             "spot_id": s.spot_id,
-            "place": {"name": s.name, "address": s.address, "category": s.category},
+            "place": {"name": s.name, "address": s.address, "category": s.category, "lat": s.lat, "lng": s.lng},
             "visited_at": _iso(s.visited_at),
             "thumbnail_url": storage.url_for(ph.storage_path) if ph else None,
         }

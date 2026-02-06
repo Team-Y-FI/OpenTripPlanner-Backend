@@ -8,5 +8,6 @@ class OptionItem(BaseModel):
 class MetaOptions(BaseModel):
     purposes: list[OptionItem]
     categories: list[OptionItem]
+    place_categories: list[OptionItem]
     transport: list[OptionItem]
     crowd_mode: list[OptionItem]

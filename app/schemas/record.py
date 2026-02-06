@@ -6,6 +6,7 @@ class SpotCreateItem(BaseModel):
     photo_id: str
     visited_at: datetime
     place: PlaceIn
+    memo: str | None = None
 
 class SpotCreateRequest(BaseModel):
     upload_id: str
