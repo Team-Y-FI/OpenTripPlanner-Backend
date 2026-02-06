@@ -17,6 +17,7 @@ class PlanGenerateRequest(BaseModel):
     end_date: str
     first_day_start_time: str
     last_day_end_time: str
+    categories: List[str] = []
     # 'transport' (대중교통+도보) 또는 'car' (승용차) 중 선택
     transport_mode: str = "transport"
     fixed_events: Optional[List[FixedEvent]] = []

@@ -1124,9 +1124,14 @@ class RouteOptimizerService:
 
         if not self.is_initialized: self.initialize_resources()
         if self.df_places is None: return {'error': '장소 데이터를 불러올 수 없습니다'}
+
+        cols = ["name", "category", "category2", "lat", "lng"]
         
         # 1. 반경 검색 및 데이터 필터링
         center = SEOUL_GU_COORDS.get(request.region, {"lat": 37.57, "lng": 126.98})
+
+        categories = request.categories
+        print(f"카테고리 확인 : {categories}")
 
         if request.fixed_events:
             for event in request.fixed_events:
@@ -1144,18 +1149,34 @@ class RouteOptimizerService:
                     center = {"lat": float(e_lat), "lng": float(e_lng)}
                     print(f"중심점 변경: 고정일정 기준 ({center['lat']}, {center['lng']})")
                     break
-
+        
         REDIUS = 8
         df = self.df_places.copy()
         df['dist'] = df.apply(lambda r: self._haversine(center['lat'], center['lng'], r['lat'], r['lng']), axis=1)
         
-        places = df[(df['dist']<=REDIUS) & (~df['category'].isin(['음식점','숙박']))][["name", "category", "category2", "lat", "lng"]].to_dict('records')
+        mask = (df['dist'] <= REDIUS) & (~df['category'].isin(['음식점', '숙박']))
+
+        if categories:
+            CAT_MAP = {
+                "attraction": "관광지",
+                "culture": "문화시설",
+                "shopping": "쇼핑",
+                "cafe": "카페"
+            }
+            target_cats = []
+            for c in categories:
+                target_cats.extend(CAT_MAP.get(c, [c]))
+            
+            if target_cats:
+                places = places & (df['category'].isin(target_cats))
+
+        places = df[mask][cols].to_dict('records')
         print(f"'{request.region}' 중심 반경 {REDIUS}km 내 관광 장소 개수 : {len(places)}개")
 
-        restaurants = df[(df['dist']<=REDIUS) & (df['category']=='음식점')][["name", "category", "category2", "lat", "lng"]].to_dict('records')
+        restaurants = df[(df['dist']<=REDIUS) & (df['category']=='음식점')][cols].to_dict('records')
         print(f"'{request.region}' 중심 반경 {REDIUS}km 내 음식점 개수 : {len(restaurants)}개")
 
-        accommodations = df[(df['dist']<=REDIUS) & (df['category']=='숙박')][["name", "category", "category2", "lat", "lng"]].to_dict('records')
+        accommodations = df[(df['dist']<=REDIUS) & (df['category']=='숙박')][cols].to_dict('records')
         print(f"'{request.region}' 중심 반경 {REDIUS}km 내 숙박시설 개수 : {len(accommodations)}개")
         
         # 2. 날짜 계산
