@@ -820,9 +820,11 @@ class RouteOptimizerService:
                     est_min = self._travel_minutes(prev, node, transport_mode) # 주차 포함된 시간 반환됨
                     current_leg_travel_time += est_min
                     
-                    msg = f"이동 : {est_min}분"
                     if transport_mode == "car":
-                        msg += " (주차포함)"
+                        msg = f"승용차 이동 : {est_min}분 (주차포함)"
+                    else:
+                        msg = f"도보/대중교통 이동 : {est_min}분 (경로 정보 없음)"
+                        
                     transit_info.append(msg)
                 
                 arrival_dt = cursor_dt + timedelta(minutes=current_leg_travel_time)
