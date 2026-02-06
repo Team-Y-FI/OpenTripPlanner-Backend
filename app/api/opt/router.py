@@ -28,5 +28,8 @@ for mod, prefix, tags in OPTIONAL_ENDPOINTS:
             api_router.include_router(r, tags=tags)
         else:
             api_router.include_router(r, prefix=prefix, tags=tags)
-    except Exception:
+    except Exception as e:
+        print(f"[ERROR] 라우터 로드 실패 ({mod}): {e}")
+        import traceback
+        traceback.print_exc()
         continue

@@ -1169,7 +1169,7 @@ class RouteOptimizerService:
                 target_cats.append(val)
             
             if target_cats:
-                places = places & (df['category'].isin(target_cats))
+                mask = mask & (df['category'].isin(target_cats))
 
         places = df[mask][cols].to_dict('records')
         print(f"'{request.region}' 중심 반경 {REDIUS}km 내 관광 장소 개수 : {len(places)}개")

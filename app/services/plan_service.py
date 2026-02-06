@@ -45,7 +45,7 @@ class PlanService:
                 first_day_start_time=payload["first_day_start_time"],
                 last_day_end_time=payload["last_day_end_time"],
                 fixed_events=fixed_events,
-                categories=payload.get("categories", [])
+                categories=payload.get("categories", []),
                 # ✅ [수정] transport_mode 추가 (기본값 'transport')
                 transport_mode=payload.get("transport_mode", "transport") 
             )
