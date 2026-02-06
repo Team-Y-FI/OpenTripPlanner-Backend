@@ -517,8 +517,7 @@ class RouteOptimizerService:
                     if w_val and pd.to_timedelta(w_val).total_seconds() > 0:
                         wait_time = 1
 
-                if wait_time > 0: segs.append(f"대기 : {wait_time}분")
-                
+                if wait_time > 0 and 'WALK' not in raw_mode: segs.append(f"대기 : {wait_time}분")
                 if 'CAR' in raw_mode: segs.append(f"승용차 이동 : {ride_time}분")
                 elif 'WALK' in raw_mode: segs.append(f"도보 : {ride_time}분")
                 else:
