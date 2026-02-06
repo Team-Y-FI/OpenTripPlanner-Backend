@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import secrets
+import string
 
 from fastapi import HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -92,6 +94,65 @@ class AuthService:
                 samesite="lax",
                 max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
             )
+
+        return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+
+    def _gen_random_password(self) -> str:
+        letters = string.ascii_letters
+        digits = string.digits
+        specials = "!@#$%^&*()_+-="
+        base = [
+            secrets.choice(letters),
+            secrets.choice(digits),
+            secrets.choice(specials),
+        ] + [secrets.choice(letters + digits + specials) for _ in range(12)]
+        secrets.SystemRandom().shuffle(base)
+        return "".join(base)
+
+    async def kakao_login(self, *, email: str, nickname: str) -> dict:
+        """
+        Kakao에서 받은 email/nickname으로 자동 회원가입 + 로그인(JWT 발급)
+        요구사항:
+        - users.email = email
+        - users.user_id = email의 '@' 이전 값
+        - users.name = nickname
+        """
+        if not email:
+            raise HTTPException(status_code=400, detail="카카오에서 이메일이 제공되지 않았습니다.")
+
+        user = await self.users.get_by_email(email)
+
+        if not user:
+            base_user_id = email.split("@", 1)[0]
+            user_id = base_user_id
+
+            # user_id(PK) 충돌 방지
+            existed = await self.users.get_by_user_id(user_id)
+            if existed:
+                user_id = f"{base_user_id}_{secrets.token_hex(3)}"
+
+            password_hash = get_password_hash(self._gen_random_password())
+            user = await self.users.create(
+                user_id=user_id,
+                email=email,
+                name=nickname or base_user_id,
+                password_hash=password_hash,
+            )
+
+        access_token = create_access_token(
+            subject=str(user.user_id),
+            expires_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+        )
+        refresh_token, _ = create_refresh_token(
+            subject=str(user.user_id),
+            expires_days=settings.REFRESH_TOKEN_EXPIRE_DAYS,
+        )
+
+        await self.tokens.issue(
+            user_id=user.user_id,
+            token_hash=hash_refresh_token(refresh_token),
+            expires_days=settings.REFRESH_TOKEN_EXPIRE_DAYS,
+        )
 
         return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
