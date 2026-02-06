@@ -417,9 +417,15 @@ class RouteOptimizerService:
         a = math.sin(dphi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda/2)**2
         return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1-a))
 
-    def _travel_minutes(self, p1, p2):
+    def _travel_minutes(self, p1, p2, mode="transport"):
         if p1 is None or p2 is None or p1.get('lat') is None or p2.get('lat') is None: return 0
         dist = self._haversine(p1['lat'], p1['lng'], p2['lat'], p2['lng'])
+
+        if mode == "car":
+            # Assume 30km/h (0.5km/min) + 15 min parking/walking
+            drive_time = int(dist / 0.5)
+            return drive_time + 15
+            
         return int(dist / 30 * 60)
 
     # ========== 경로 계산 (R5PY) ==========
@@ -755,6 +761,10 @@ class RouteOptimizerService:
                         # (B) 이동 시간 지연 (도로 혼잡도 반영)
                         elif "승용차" in segment or "버스" in segment:
                             traffic_checked = True
+                            parking_time = 0
+                            if transport_mode == "car":
+                                parking_time = 12
+
                             if dest_traffic_lvl > 0:
                                 mode_key = "car" if "승용차" in segment else "bus"
                                 weight = self._get_travel_time_weight(dest_traffic_lvl, mode_key)
@@ -763,19 +773,34 @@ class RouteOptimizerService:
                                 t_txt = {1: "서행", 2: "정체"}.get(dest_traffic_lvl, "")
                                 icon = ICONS.get(dest_traffic_lvl, "")
                                 status_tag = f" [{icon}{t_txt}]"
+                            
+                            if parking_time > 0:
+                                added_min += parking_time
+                                status_tag += f" [주차/도보 +{parking_time}분]"
 
                         # (C) 텍스트 업데이트
                         real_mins = seg_mins + added_min
                         current_leg_travel_time += real_mins
+
                         if added_min > 0:
-                            status_tag = status_tag.replace("]", f" (+{added_min}분)]")
+                            if "]" in status_tag and "분" not in status_tag: 
+                                status_tag = status_tag.replace("]", f" (+{added_min}분)]")
+                            elif "]" not in status_tag: 
+                                status_tag = f" (+{added_min}분)"
+                            
                             segment = re.sub(r'\d+분', f'{real_mins}분', segment)
+
                         transit_info.append(segment + status_tag)
                 else:
                     # 상세 경로 정보가 없을 경우 직선 거리 기반 추정
-                    est_min = self._travel_minutes(prev, node)
+                    est_min = self._travel_minutes(prev, node, transport_mode)
                     current_leg_travel_time += est_min
-                    transit_info.append(f"이동 : {est_min}분")
+                    
+                    msg = f"이동 : {est_min}분"
+
+                    if transport_mode == "car":
+                        msg += " (주차포함)"
+                    transit_info.append(msg)
                 
                 # 이동 후 도착 시간 갱신
                 arrival_dt = cursor_dt + timedelta(minutes=current_leg_travel_time)
@@ -929,6 +954,9 @@ class RouteOptimizerService:
                     if not (nodes[i]["type"] == "depot" and nodes[j]["type"] == "fixed"):
                         val = max(val, 30)
                 
+                if transport_mode == 'car':
+                    val += 15
+                
                 # [이동 시간 여유] 10% 추가 (기존 30% -> 10%로 축소)
                 val = int(val * 1.1)
                 time_matrix[i][j] = int(val)
@@ -962,8 +990,10 @@ class RouteOptimizerService:
         
         # 5. 최적 경로 탐색 실행 (OR-Tools / DFS)
         print(f"[{target_date_str}] 경로 최적화 진행 중 (노드 {n}개)...")
+        start_dfs = time.time()
         solver = SimpleRouteSolver(solver_nodes, time_matrix, windows, start_min, max_horizon)
         best_path_indices, arrival_times = solver.solve()
+        print(f"DFS 경로 탐색 완료 : {round(time.time() - start_dfs, 2)}초")
 
         # 해를 찾지 못한 경우
         if not best_path_indices:
@@ -978,8 +1008,10 @@ class RouteOptimizerService:
             visited_nodes.append(node)
 
         # 7. 타임라인 상세 경로 생성 (상세 이동 수단 등)
+        start_detail_path = time.time()
         trip_legs = [(visited_nodes[i], visited_nodes[i+1]) for i in range(len(visited_nodes)-1)]
         path_map = self._get_all_detailed_paths(trip_legs, r5_dep, transport_mode)
+        print(f"상세경로 생성 완료 : {round(time.time() - start_detail_path, 2)}초")
 
         # 타임라인 생성용 기준 시간
         timeline_base_dt = datetime.combine(base_date, datetime.min.time())
