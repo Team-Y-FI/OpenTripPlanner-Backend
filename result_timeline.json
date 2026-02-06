@@ -100,60 +100,68 @@
     "timelines": {
       "fastest_version": [
         {
-          "name": "꺼거",
-          "category": "음식점",
-          "category2": "외국식",
-          "time": "11:00 - 12:38 [🔴혼잡 (+28분)]",
-          "transit_to_here": [
-            "출발 전 여유 : 20분",
-            "현장 대기 : 10분"
-          ],
-          "population_level": "인구 혼잡🔴",
-          "traffic_level": "-"
-        },
-        {
-          "name": "덕수궁",
-          "category": "관광지",
-          "category2": "역사유적지",
-          "time": "13:02 - 14:50 [🟡보통 (+18분)]",
-          "transit_to_here": [
-            "승용차 이동 : 24분 [주차/도보 +15분]"
-          ],
-          "population_level": "인구 보통🟡",
-          "traffic_level": "교통 원활🟢"
-        },
-        {
-          "name": "광화문광장",
-          "category": "관광지",
-          "category2": "도시공원",
-          "time": "15:11 - 16:41",
-          "transit_to_here": [
-            "승용차 이동 : 21분 [🟡서행] [주차/도보 +15분]"
-          ],
-          "population_level": "인구 여유🟢",
-          "traffic_level": "교통 서행🟡"
-        },
-        {
           "name": "삼청동거리",
           "category": "관광지",
           "category2": "도시/지역문화관광",
-          "time": "17:03 - 18:33",
-          "transit_to_here": [
-            "승용차 이동 : 22분 [주차/도보 +15분]"
-          ],
+          "time": "10:00 - 11:30",
+          "transit_to_here": [],
           "population_level": "인구 여유🟢",
-          "traffic_level": "교통 원활🟢"
+          "traffic_level": "-"
         },
         {
           "name": "성북동누룽지백숙",
           "category": "음식점",
           "category2": "한식",
-          "time": "18:53 - 20:03",
+          "time": "11:47 - 12:57",
           "transit_to_here": [
-            "승용차 이동 : 20분 [주차/도보 +15분]"
+            "승용차 이동 : 17분 [주차/도보 +12분]"
           ],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 원활🟢"
+        },
+        {
+          "name": "북촌한옥마을",
+          "category": "관광지",
+          "category2": "역사유적지",
+          "time": "13:23 - 14:53",
+          "transit_to_here": [
+            "승용차 이동 : 26분 [🟡서행 (+6분)] [주차/도보 +12분]"
+          ],
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 서행🟡"
+        },
+        {
+          "name": "국립고궁박물관",
+          "category": "문화시설",
+          "category2": "전시시설",
+          "time": "15:14 - 16:14",
+          "transit_to_here": [
+            "승용차 이동 : 21분 [🟡서행 (+4분)] [주차/도보 +12분]"
+          ],
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 서행🟡"
+        },
+        {
+          "name": "덕수궁",
+          "category": "관광지",
+          "category2": "역사유적지",
+          "time": "16:32 - 18:20 [🟡보통 (+18분)]",
+          "transit_to_here": [
+            "승용차 이동 : 18분 [주차/도보 +12분]"
+          ],
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 원활🟢"
+        },
+        {
+          "name": "꺼거",
+          "category": "음식점",
+          "category2": "외국식",
+          "time": "18:48 - 20:26 [🔴혼잡 (+28분)]",
+          "transit_to_here": [
+            "승용차 이동 : 28분 [🔴정체 (+8분)] [주차/도보 +12분]"
+          ],
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 정체🔴"
         }
       ]
     }
@@ -263,9 +271,9 @@
           "name": "바이두부",
           "category": "음식점",
           "category2": "한식",
-          "time": "11:52 - 13:02",
+          "time": "11:49 - 12:59",
           "transit_to_here": [
-            "승용차 이동 : 22분 [주차/도보 +15분]"
+            "승용차 이동 : 19분 [주차/도보 +12분]"
           ],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 원활🟢"
@@ -274,9 +282,9 @@
           "name": "독립선언문 배부 터",
           "category": "관광지",
           "category2": "역사유적지",
-          "time": "13:34 - 15:04",
+          "time": "13:28 - 14:58",
           "transit_to_here": [
-            "승용차 이동 : 32분 [🟡서행] [주차/도보 +15분]"
+            "승용차 이동 : 29분 [🟡서행 (+7분)] [주차/도보 +12분]"
           ],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 서행🟡"
@@ -285,9 +293,9 @@
           "name": "사직공원(서울)",
           "category": "관광지",
           "category2": "도시공원",
-          "time": "15:28 - 16:58",
+          "time": "15:19 - 16:49",
           "transit_to_here": [
-            "승용차 이동 : 24분 [🟡서행] [주차/도보 +15분]"
+            "승용차 이동 : 21분 [🟡서행 (+4분)] [주차/도보 +12분]"
           ],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 서행🟡"
