@@ -30,6 +30,20 @@ class Settings(BaseSettings):
     STORAGE_DIR: str = "./storage"
     REDIS_URL: str | None = None
 
+    # ✅ SMTP (Gmail)
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = "OpenTripPlanner <no-reply@example.com>"
+    SMTP_USE_TLS: bool = True          # STARTTLS(587)
+    SMTP_TIMEOUT: int = 10
+
+    # Kakao OAuth
+    KAKAO_CLIENT_ID: str = ""
+    KAKAO_CLIENT_SECRET: str = ""
+    KAKAO_REDIRECT_URI: str = ""
+
 
 settings = Settings()
 
