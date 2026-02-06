@@ -6,6 +6,7 @@ from app.core.security import get_current_user
 from app.core.exceptions import AppError
 from app.schemas.upload import PlaceIn
 from app.services.upload_service import UploadService
+from app.services.geocoding_service import GeocodingService
 from app.services.storage_service import LocalStorageService
 
 router = APIRouter()
@@ -107,8 +108,21 @@ async def set_place(
 ):
     svc = UploadService(db)
     storage = LocalStorageService()
+    place_data = place.model_dump()
 
-    photo = await svc.update_photo_place(user.user_id, photo_id, place.model_dump())
+    if place_data.get("lat") is None or place_data.get("lng") is None:
+        query = (place_data.get("address") or place_data.get("name") or "").strip()
+        geo = await GeocodingService().geocode(query)
+        lat = geo.get("lat")
+        lng = geo.get("lng")
+        if lat is None or lng is None:
+            raise AppError("bad_request", "주소로 위치를 찾을 수 없습니다.", 400)
+        place_data["lat"] = lat
+        place_data["lng"] = lng
+        if not place_data.get("address"):
+            place_data["address"] = geo.get("road_address") or geo.get("address")
+
+    photo = await svc.update_photo_place(user.user_id, photo_id, place_data)
     if not photo:
         raise AppError("not_found", "Photo not found", 404)
 

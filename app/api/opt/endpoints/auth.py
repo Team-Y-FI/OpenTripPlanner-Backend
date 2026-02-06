@@ -10,6 +10,8 @@ from app.core.config import settings
 router = APIRouter(tags=["auth"])
 
 REFRESH_COOKIE_NAME = "refresh_token"
+COOKIE_SECURE = settings.ENV.lower() != "dev"
+COOKIE_SAMESITE = "none" if COOKIE_SECURE else "lax"
 
 
 class SendVerificationIn(BaseModel):
@@ -66,8 +68,8 @@ async def login(body: LoginIn, response: Response, db: AsyncSession = Depends(ge
         key=REFRESH_COOKIE_NAME,
         value=tokens["refresh_token"],
         httponly=True,
-        secure=True,
-        samesite="none",
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
         path="/",
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
@@ -87,8 +89,8 @@ async def refresh(request: Request, response: Response, db: AsyncSession = Depen
         key=REFRESH_COOKIE_NAME,
         value=tokens["refresh_token"],
         httponly=True,
-        secure=True,
-        samesite="none",
+        secure=COOKIE_SECURE,
+        samesite=COOKIE_SAMESITE,
         path="/",
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
