@@ -711,103 +711,104 @@ class RouteOptimizerService:
     def _build_timeline_by_type(self, visited_nodes, path_map, timeline_base_dt, target_date_str, path_type, transport_mode="transport"):
 
         timeline = []
-        if len(visited_nodes) < 2: return [] # 최소한 [가상시작점, 첫장소]는 있어야 함
+        if len(visited_nodes) < 2: return []
         
         cursor_dt = timeline_base_dt 
         ICONS = {0: "🟢", 1: "🟡", 2: "🔴"}
 
-        # 0번(가상 시작점)은 건너뛰고 1번(첫 실제 장소)부터 순회
         for i in range(1, len(visited_nodes)):
             prev, node = visited_nodes[i-1], visited_nodes[i]
             transit_info = []
             current_leg_travel_time = 0 
 
             # [1] 도착 시간 설정
-            # i=1인 경우, 이동시간이 0이므로 arrival_min이 start_min(예: 10:00)과 같습니다.
             if 'arrival_min' in node:
                 arrival_dt = timeline_base_dt + timedelta(minutes=node['arrival_min'])
             else:
                 arrival_dt = cursor_dt 
 
-            # [2] 이동 경로 계산 및 정보 생성
-            # 첫 번째 장소(i==1)는 이동 정보 생략 (바로 시작)
+            # [2] 이동 경로 계산
             if i == 1:
                 pass 
             else:
-                # 두 번째 장소부터는 정상적으로 이동 경로 계산
                 dest_traffic_lvl = self._get_traffic_level(node.get('lat'), node.get('lng'), arrival_dt)
-                traffic_checked = False
                 
                 path_options = path_map.get((prev['id'], node['id']))
                 if path_options:
                     chosen_path = path_options.get('fastest' if transport_mode == "car" else path_type, [])
                     
                     for segment in chosen_path:
-                        # 정규식으로 시간 추출 (예: "도보 : 10분")
                         seg_mins = sum(int(m) for m in re.findall(r'(\d+)분', segment))
-                        added_min = 0
+                        
+                        # 변수 분리: 총 추가 시간, 교통 지연, 상태 태그
+                        total_added_min = 0 
                         status_tag = ""
                         
-                        # (A) 대기 시간 지연 (교통 혼잡도 반영)
+                        # (A) 대기 시간 지연
                         if "대기" in segment:
                             origin_traffic_lvl = self._get_traffic_level(prev.get('lat'), prev.get('lng'), cursor_dt)
                             if origin_traffic_lvl > 0:
                                 weight = self._get_wait_weight(origin_traffic_lvl)
                                 final_mins = math.ceil(seg_mins * weight)
                                 added_min = final_mins - seg_mins
+                                total_added_min += added_min
+                                
                                 icon = ICONS.get(origin_traffic_lvl, "")
-                                status_tag = f" [{icon}]"
+                                if added_min > 0:
+                                    status_tag = f" [{icon}혼잡 (+{added_min}분)]"
+                                else:
+                                    status_tag = f" [{icon}혼잡]"
 
-                        # (B) 이동 시간 지연 (도로 혼잡도 반영)
+                        # (B) 이동 시간 지연 (도로 혼잡 + 주차)
                         elif "승용차" in segment or "버스" in segment:
-                            traffic_checked = True
-                            parking_time = 0
-                            if transport_mode == "car":
-                                parking_time = 12
-
+                            traffic_added_min = 0 # 순수 교통 정체 시간
+                            parking_time = 0      # 주차 시간
+                            
+                            # 1. 교통 정체 계산
                             if dest_traffic_lvl > 0:
                                 mode_key = "car" if "승용차" in segment else "bus"
                                 weight = self._get_travel_time_weight(dest_traffic_lvl, mode_key)
                                 final_mins = math.ceil(seg_mins * weight)
-                                added_min = final_mins - seg_mins
+                                traffic_added_min = final_mins - seg_mins
+                                
                                 t_txt = {1: "서행", 2: "정체"}.get(dest_traffic_lvl, "")
                                 icon = ICONS.get(dest_traffic_lvl, "")
-                                status_tag = f" [{icon}{t_txt}]"
-                            
-                            if parking_time > 0:
-                                added_min += parking_time
+                                
+                                # [수정] 교통 태그 생성 시 지연 시간 바로 표기
+                                if traffic_added_min > 0:
+                                    status_tag = f" [{icon}{t_txt} (+{traffic_added_min}분)]"
+                                else:
+                                    status_tag = f" [{icon}{t_txt}]"
+
+                            # 2. 주차 시간 계산 (자동차 모드일 때만)
+                            if transport_mode == "car":
+                                parking_time = 12
                                 status_tag += f" [주차/도보 +{parking_time}분]"
-
-                        # (C) 텍스트 업데이트
-                        real_mins = seg_mins + added_min
-                        current_leg_travel_time += real_mins
-
-                        if added_min > 0:
-                            if "]" in status_tag and "분" not in status_tag: 
-                                status_tag = status_tag.replace("]", f" (+{added_min}분)]")
-                            elif "]" not in status_tag: 
-                                status_tag = f" (+{added_min}분)"
                             
-                            segment = re.sub(r'\d+분', f'{real_mins}분', segment)
+                            total_added_min = traffic_added_min + parking_time
 
+                        # (C) 최종 텍스트 업데이트
+                        real_mins = seg_mins + total_added_min
+                        current_leg_travel_time += real_mins
+                        
+                        # 기존 "10분" -> "29분" (기본10 + 정체4 + 주차15)으로 변경
+                        segment = re.sub(r'\d+분', f'{real_mins}분', segment)
                         transit_info.append(segment + status_tag)
                 else:
-                    # 상세 경로 정보가 없을 경우 직선 거리 기반 추정
-                    est_min = self._travel_minutes(prev, node, transport_mode)
+                    # Fallback (직선거리)
+                    est_min = self._travel_minutes(prev, node, transport_mode) # 주차 포함된 시간 반환됨
                     current_leg_travel_time += est_min
                     
                     msg = f"이동 : {est_min}분"
-
                     if transport_mode == "car":
                         msg += " (주차포함)"
                     transit_info.append(msg)
                 
-                # 이동 후 도착 시간 갱신
                 arrival_dt = cursor_dt + timedelta(minutes=current_leg_travel_time)
 
+            # ... (이하 도착 시간 보정 및 체류 시간 로직은 기존과 동일) ...
+            
             # [3] 도착 시간 보정 (Smart Departure Logic)
-            # 식당 오픈 시간이나 고정 일정 시작 시간보다 너무 일찍 도착하면,
-            # 현장에서 기다리는 대신 이전 장소에서의 출발을 늦춰 '여유 시간'을 확보합니다.
             target_start_dt = None
             if node["type"] in ["lunch", "dinner"]:
                 t_win = LUNCH_WINDOW if node["type"] == "lunch" else DINNER_WINDOW
@@ -824,14 +825,11 @@ class RouteOptimizerService:
             if target_start_dt:
                 if arrival_dt < target_start_dt:
                     total_slack = int((target_start_dt - arrival_dt).total_seconds() / 60)
-                    safety_margin = 10 # 최소 현장 대기 시간 (지각 방지용)
+                    safety_margin = 10 
                     
                     if total_slack > safety_margin:
-                        # 너무 일찍 도착하면 출발을 늦춤
                         free_time_before_travel = total_slack - safety_margin
                         wait_min = safety_margin
-                        
-                        # 여유 시간만큼 출발 시간 뒤로 밀기 (이전 장소 체류 시간 연장 효과)
                         cursor_dt += timedelta(minutes=free_time_before_travel)
                         arrival_dt = target_start_dt - timedelta(minutes=safety_margin)
                     else:
@@ -851,7 +849,6 @@ class RouteOptimizerService:
             traffic_label = "-"
 
             if node["type"] not in ["fixed", "depot"]:
-                # 인구 혼잡도에 따른 체류 시간 보정
                 pop_lvl = self._get_population_level(node.get('lat'), node.get('lng'), arrival_dt)
                 weighted_stay = math.ceil(node["stay"] * self._get_stay_weight(pop_lvl))
                 add_stay = weighted_stay - node["stay"]
@@ -864,7 +861,6 @@ class RouteOptimizerService:
                 if add_stay > 0:
                     time_congestion_info = f" [{icon}{pop_txt} (+{add_stay}분)]"
                 
-                # 교통 정보 라벨링 (첫 번째 장소가 아닐 때만)
                 if i > 1 and 'dest_traffic_lvl' in locals():
                     t_txt = {0: "원활", 1: "서행", 2: "정체"}.get(dest_traffic_lvl, "정보없음")
                     t_icon = ICONS.get(dest_traffic_lvl, "")
@@ -877,9 +873,8 @@ class RouteOptimizerService:
                     t_icon = ICONS.get(dest_traffic_lvl, "")
                     traffic_label = f"교통 {t_txt}{t_icon}"
 
-            # [5] 최종 타임라인 문자열 생성
+            # [5] 최종 타임라인 문자열
             if node["type"] == "fixed":
-                # 고정 일정은 원래 정해진 시간 사용
                 t_parts = node.get("orig_time_str").split(" - ")
                 cursor_dt = datetime.strptime(f"{target_date_str} {t_parts[1]}", "%Y-%m-%d %H:%M")
                 time_str = node.get("orig_time_str")
