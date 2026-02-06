@@ -465,9 +465,30 @@ class RouteOptimizerService:
             departure_time.hour
         )
     
-    def _get_all_detailed_paths(self, trip_legs, departure_time, transport_mode="transport"):
+    def _get_all_detailed_paths(self, trip_legs, departure_time, transport_mode="transport", cached_times=None):
         if not trip_legs: return {}
         path_map = {}
+
+        if transport_mode == "car":
+            for s, e in trip_legs:
+                if s['id'] == e['id']: continue
+                est_min = 0
+
+                if cached_times and (s['id'], e['id']) in cached_times:
+                    est_min = cached_times[(s['id'], e['id'])]
+                else:
+                    est_min = self._travel_minutes(s, e, "car")
+
+                path_text = f"승용차 이동 : {est_min}분"
+
+                entry = {
+                    "fastest": [path_text], 
+                    "min_transfer": [path_text]
+                }
+                path_map[(s['id'], e['id'])] = entry
+            
+            return path_map
+
         origins, dests = [], []
         
         for s, e in trip_legs:
@@ -1005,7 +1026,7 @@ class RouteOptimizerService:
         # 7. 타임라인 상세 경로 생성 (상세 이동 수단 등)
         start_detail_path = time.time()
         trip_legs = [(visited_nodes[i], visited_nodes[i+1]) for i in range(len(visited_nodes)-1)]
-        path_map = self._get_all_detailed_paths(trip_legs, r5_dep, transport_mode)
+        path_map = self._get_all_detailed_paths(trip_legs, r5_dep, transport_mode, cached_times=r5_times)
         print(f"상세경로 생성 완료 : {round(time.time() - start_detail_path, 2)}초")
 
         # 타임라인 생성용 기준 시간
