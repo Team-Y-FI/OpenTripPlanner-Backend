@@ -985,7 +985,7 @@ class RouteOptimizerService:
         timeline_base_dt = datetime.combine(base_date, datetime.min.time())
 
         # 결과 딕셔너리 생성
-        res_key = "car_version" if transport_mode == "car" else "fastest_version"
+        res_key = "fastest_version" if transport_mode == "car" else "fastest_version"
         result = {res_key: self._build_timeline_by_type(visited_nodes, path_map, timeline_base_dt, target_date_str, "fastest", transport_mode)}
 
         if transport_mode != "car":
