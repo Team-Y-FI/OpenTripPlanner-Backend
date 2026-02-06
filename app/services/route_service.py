@@ -1040,8 +1040,8 @@ class RouteOptimizerService:
         {schema}
         [절대 규칙]
         1. 모든 장소의 이름, 좌표(lat, lng), 카테고리는 입력된 데이터와 100% 일치해야 한다.
-        2. 'route' 배열: 제공된 'places' 목록에서 10개를 선택
-        3. 'restaurants' 배열: 제공된 'restaurants' 목록에서 5개를 선택
+        2. 'route' 배열: 제공된 'places' 목록에서 8개를 선택
+        3. 'restaurants' 배열: 제공된 'restaurants' 목록에서 4개를 선택
         4. 'accommodations' 배열: 제공된 'accommodations' 목록에서 1개를 선택 (마지막 날은 빈 배열)
         5. 출력: 순수 JSON만 출력
         """
