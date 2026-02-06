@@ -37,6 +37,13 @@
         "lng": 126.9867060298
       },
       {
+        "name": "삼청동거리",
+        "category": "관광지",
+        "category2": "도시/지역문화관광",
+        "lat": 37.5889267212,
+        "lng": 126.982819993
+      },
+      {
         "name": "인사동",
         "category": "관광지",
         "category2": "기타체험",
@@ -49,27 +56,6 @@
         "category2": "도시공원",
         "lat": 37.5697015781,
         "lng": 127.0050907302
-      },
-      {
-        "name": "동대문디자인플라자(DDP)",
-        "category": "관광지",
-        "category2": "산업관광",
-        "lat": 37.566107632,
-        "lng": 127.0095709797
-      },
-      {
-        "name": "동대문종합시장",
-        "category": "쇼핑",
-        "category2": "시장",
-        "lat": 37.5709736927,
-        "lng": 127.0073349346
-      },
-      {
-        "name": "남산서울타워",
-        "category": "관광지",
-        "category2": "랜드마크관광",
-        "lat": 37.5511089858,
-        "lng": 126.9878983791
       }
     ],
     "restaurants": [
@@ -91,8 +77,8 @@
         "name": "우가",
         "category": "음식점",
         "category2": "한식",
-        "lat": 37.5293492744,
-        "lng": 126.9248991792
+        "lat": 37.5196576435,
+        "lng": 127.0190908729
       },
       {
         "name": "꺼거",
@@ -100,75 +86,46 @@
         "category2": "외국식",
         "lat": 37.5316053954,
         "lng": 126.9711421239
-      },
-      {
-        "name": "명문막국수",
-        "category": "음식점",
-        "category2": "한식",
-        "lat": 37.5882633071,
-        "lng": 127.0049541051
       }
     ],
     "accommodations": [
       {
-        "name": "롯데호텔서울",
+        "name": "반얀트리 클럽 앤 스파 서울",
         "category": "숙박",
         "category2": "호텔",
-        "lat": 37.5654016461,
-        "lng": 126.981045821
+        "lat": 37.55012877,
+        "lng": 127.0005250345
       }
     ],
     "timelines": {
       "fastest_version": [
         {
-          "name": "동대문종합시장",
-          "category": "쇼핑",
-          "category2": "시장",
-          "time": "10:00 - 11:00",
+          "name": "삼청동거리",
+          "category": "관광지",
+          "category2": "도시/지역문화관광",
+          "time": "10:00 - 11:30",
           "transit_to_here": [],
           "population_level": "인구 여유🟢",
           "traffic_level": "-"
         },
         {
-          "name": "명문막국수",
+          "name": "성북동누룽지백숙",
           "category": "음식점",
           "category2": "한식",
-          "time": "11:19 - 12:29",
+          "time": "11:35 - 12:45",
           "transit_to_here": [
-            "승용차 이동 : 19분 [🟡서행 (+8분)]"
+            "승용차 이동 : 5분"
           ],
           "population_level": "인구 여유🟢",
-          "traffic_level": "교통 서행🟡"
+          "traffic_level": "교통 원활🟢"
         },
         {
           "name": "북촌한옥마을",
           "category": "관광지",
           "category2": "역사유적지",
-          "time": "12:38 - 14:08",
+          "time": "12:59 - 14:29",
           "transit_to_here": [
-            "승용차 이동 : 9분 [🟡서행 (+4분)]"
-          ],
-          "population_level": "인구 여유🟢",
-          "traffic_level": "교통 서행🟡"
-        },
-        {
-          "name": "덕수궁",
-          "category": "관광지",
-          "category2": "역사유적지",
-          "time": "14:12 - 16:00 [🟡보통 (+18분)]",
-          "transit_to_here": [
-            "승용차 이동 : 4분"
-          ],
-          "population_level": "인구 보통🟡",
-          "traffic_level": "교통 원활🟢"
-        },
-        {
-          "name": "광화문광장",
-          "category": "관광지",
-          "category2": "도시공원",
-          "time": "16:06 - 17:36",
-          "transit_to_here": [
-            "승용차 이동 : 6분 [🟡서행 (+3분)]"
+            "승용차 이동 : 14분 [🟡서행 (+6분)]"
           ],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 서행🟡"
@@ -177,7 +134,7 @@
           "name": "인사동",
           "category": "관광지",
           "category2": "기타체험",
-          "time": "17:42 - 19:12",
+          "time": "14:35 - 16:05",
           "transit_to_here": [
             "승용차 이동 : 6분 [🟡서행 (+3분)]"
           ],
@@ -185,15 +142,37 @@
           "traffic_level": "교통 서행🟡"
         },
         {
-          "name": "성북동누룽지백숙",
-          "category": "음식점",
-          "category2": "한식",
-          "time": "19:26 - 20:36",
+          "name": "국립고궁박물관",
+          "category": "문화시설",
+          "category2": "전시시설",
+          "time": "16:12 - 17:12",
           "transit_to_here": [
-            "승용차 이동 : 14분"
+            "승용차 이동 : 7분 [🟡서행 (+3분)]"
           ],
           "population_level": "인구 여유🟢",
+          "traffic_level": "교통 서행🟡"
+        },
+        {
+          "name": "덕수궁",
+          "category": "관광지",
+          "category2": "역사유적지",
+          "time": "17:18 - 19:06 [🟡보통 (+18분)]",
+          "transit_to_here": [
+            "승용차 이동 : 6분"
+          ],
+          "population_level": "인구 보통🟡",
           "traffic_level": "교통 원활🟢"
+        },
+        {
+          "name": "꺼거",
+          "category": "음식점",
+          "category2": "외국식",
+          "time": "19:22 - 21:00 [🔴혼잡 (+28분)]",
+          "transit_to_here": [
+            "승용차 이동 : 16분 [🔴정체 (+8분)]"
+          ],
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 정체🔴"
         }
       ]
     }
@@ -250,25 +229,11 @@
         "lng": 126.9214545083
       },
       {
-        "name": "거북선나루터",
-        "category": "관광지",
-        "category2": "자연경관(하천/해양)",
-        "lat": 37.5182707714,
-        "lng": 126.9676539295
-      },
-      {
-        "name": "유심사 터",
-        "category": "관광지",
-        "category2": "역사유적지",
-        "lat": 37.5815082151,
-        "lng": 126.9870198203
-      },
-      {
-        "name": "낙원동 아구찜 거리",
-        "category": "관광지",
-        "category2": "도시/지역문화관광",
-        "lat": 37.5732314221,
-        "lng": 126.9883060491
+        "name": "동대문종합시장 한복상가",
+        "category": "쇼핑",
+        "category2": "시장",
+        "lat": 37.5709736927,
+        "lng": 127.0073349346
       }
     ],
     "restaurants": [
@@ -287,13 +252,6 @@
         "lng": 127.041716404
       },
       {
-        "name": "한미옥",
-        "category": "음식점",
-        "category2": "한식",
-        "lat": 37.5253101437,
-        "lng": 127.0401887917
-      },
-      {
         "name": "바이두부",
         "category": "음식점",
         "category2": "한식",
@@ -301,65 +259,65 @@
         "lng": 126.9852237637
       },
       {
-        "name": "송원",
+        "name": "운산",
         "category": "음식점",
         "category2": "한식",
-        "lat": 37.5609609284,
-        "lng": 127.005157639
+        "lat": 37.5293492744,
+        "lng": 126.9248991792
       }
     ],
     "accommodations": [],
     "timelines": {
       "fastest_version": [
         {
-          "name": "장충동 족발 골목",
+          "name": "독립선언문 배부 터",
           "category": "관광지",
-          "category2": "도시/지역문화관광",
+          "category2": "역사유적지",
           "time": "10:00 - 11:30",
           "transit_to_here": [],
           "population_level": "인구 여유🟢",
           "traffic_level": "-"
         },
         {
-          "name": "송원",
+          "name": "사직공원(서울)",
+          "category": "관광지",
+          "category2": "도시공원",
+          "time": "11:39 - 13:09",
+          "transit_to_here": [
+            "승용차 이동 : 9분 [🟡서행 (+4분)]"
+          ],
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 서행🟡"
+        },
+        {
+          "name": "바이두부",
           "category": "음식점",
           "category2": "한식",
-          "time": "11:34 - 12:58 [🟡보통 (+14분)]",
+          "time": "13:20 - 14:30",
           "transit_to_here": [
-            "승용차 이동 : 4분 [🟡서행 (+2분)]"
+            "승용차 이동 : 11분"
+          ],
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 원활🟢"
+        },
+        {
+          "name": "장충동 족발 골목",
+          "category": "관광지",
+          "category2": "도시/지역문화관광",
+          "time": "14:42 - 16:30 [🟡보통 (+18분)]",
+          "transit_to_here": [
+            "승용차 이동 : 12분 [🟡서행 (+5분)]"
           ],
           "population_level": "인구 보통🟡",
           "traffic_level": "교통 서행🟡"
         },
         {
-          "name": "낙원동 아구찜 거리",
-          "category": "관광지",
-          "category2": "도시/지역문화관광",
-          "time": "13:10 - 14:40",
-          "transit_to_here": [
-            "승용차 이동 : 12분 [🟡서행 (+5분)]"
-          ],
-          "population_level": "인구 여유🟢",
-          "traffic_level": "교통 서행🟡"
-        },
-        {
-          "name": "독립선언문 배부 터",
-          "category": "관광지",
-          "category2": "역사유적지",
-          "time": "14:46 - 16:16",
+          "name": "동대문종합시장 한복상가",
+          "category": "쇼핑",
+          "category2": "시장",
+          "time": "16:36 - 17:36",
           "transit_to_here": [
             "승용차 이동 : 6분 [🟡서행 (+3분)]"
-          ],
-          "population_level": "인구 여유🟢",
-          "traffic_level": "교통 서행🟡"
-        },
-        {
-          "name": "김달진미술자료박물관",
-          "category": "문화시설",
-          "category2": "전시시설",
-          "time": "16:32 - 17:32",
-          "transit_to_here": [
-            "승용차 이동 : 16분 [🟡서행 (+7분)]"
           ],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 서행🟡"
