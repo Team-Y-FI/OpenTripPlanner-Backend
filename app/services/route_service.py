@@ -1102,13 +1102,13 @@ class RouteOptimizerService:
         df['dist'] = df.apply(lambda r: self._haversine(center['lat'], center['lng'], r['lat'], r['lng']), axis=1)
         
         places = df[(df['dist']<=REDIUS) & (~df['category'].isin(['음식점','숙박']))][["name", "category", "category2", "lat", "lng"]].to_dict('records')
-        print(f"'{request.region}' 중심 반경 {REDIUS}km 내 관광 장소 개수 {len(places)}개")
+        print(f"'{request.region}' 중심 반경 {REDIUS}km 내 관광 장소 개수 : {len(places)}개")
 
         restaurants = df[(df['dist']<=REDIUS) & (df['category']=='음식점')][["name", "category", "category2", "lat", "lng"]].to_dict('records')
-        print(f"'{request.region}' 중심 반경 {REDIUS}km 내 음식점 개수 {len(restaurants)}개")
+        print(f"'{request.region}' 중심 반경 {REDIUS}km 내 음식점 개수 : {len(restaurants)}개")
 
         accommodations = df[(df['dist']<=REDIUS) & (df['category']=='숙박')][["name", "category", "category2", "lat", "lng"]].to_dict('records')
-        print(f"'{request.region}' 중심 반경 {REDIUS}km 내 숙박시설 개수 {len(accommodations)}개")
+        print(f"'{request.region}' 중심 반경 {REDIUS}km 내 숙박시설 개수 : {len(accommodations)}개")
         
         # 2. 날짜 계산
         start_dt = datetime.strptime(request.start_date, '%Y-%m-%d')
