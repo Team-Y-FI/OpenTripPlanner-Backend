@@ -274,7 +274,7 @@ class RouteOptimizerService:
         print("리소스 초기화 시작...")
         
         load_dotenv()
-        self.api_key = os.getenv("GOOGLE_API_KEY")
+        self.api_key = os.getenv("API_KEY_P")
 
         # 1. 모델 로드 (2개 분리)
         try:
