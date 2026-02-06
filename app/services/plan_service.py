@@ -35,7 +35,7 @@ class PlanService:
                     fixed_events.append(FixedEvent(**evt))
 
             # [DEBUG] 로그 추가
-            print(f"🔥🔥 [DEBUG] 요청 모드 확인: {payload.get('transport_mode')} 🔥🔥")
+            print(f"[DEBUG] 요청 모드 확인: {payload.get('transport_mode')}")
 
             # RouteService 요청 객체 생성 (들어온 payload 데이터를 그대로 활용)
             request_data = PlanGenerateRequest(
@@ -53,12 +53,12 @@ class PlanService:
 
         # 3. [핵심] 알고리즘 실행 (파이썬 파일 로직 작동 확인용)
         try:
-            print(f"🚀 [PlanService] 경로 생성 알고리즘 시작 (User: {user_id})")
+            print(f"[PlanService] 경로 생성 알고리즘 시작 (User: {user_id})")
             # route_service.py 의 generate_plan 호출
             generated_plans_json = route_service.generate_plan(request_data)
-            print("✅ [PlanService] 경로 생성 완료")
+            print("[PlanService] 경로 생성 완료")
         except Exception as e:
-            print(f"❌ [PlanService] 알고리즘 에러: {e}")
+            print(f"[PlanService] 알고리즘 에러: {e}")
             raise AppError("generation_failed", str(e), 500)
 
         # 4. DB 저장 로직
