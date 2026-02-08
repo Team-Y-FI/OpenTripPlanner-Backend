@@ -918,7 +918,7 @@ class RouteOptimizerService:
             
         return timeline
     
-    # ========== OR-Tools 최적화 ==========
+    # ========== 최적화 ==========
 
     def _optimize_day(self, places, restaurants, fixed_events, start_time_str, target_date_str, end_time_str=None, transport_mode="transport"):
 
@@ -1055,7 +1055,7 @@ class RouteOptimizerService:
         if start == -1 or end == -1: raise ValueError("JSON 파싱 실패")
         return json.loads(text[start:end])
 
-    def _get_gemini_recommendation(self, days, places, restaurants, accommodations):
+    def _get_gemini_recommendation(self, days, places, restaurants, accommodations, request: PlanGenerateRequest):
         if os.path.exists(RESULT_JSON_PATH):
             print("result.json 발견 → Gemini 호출 생략")
             try:
@@ -1082,10 +1082,21 @@ class RouteOptimizerService:
         }
         """
         
+        CAT_MAP = {
+                "attraction": "관광지",
+                "culture": "문화시설",
+                "shopping": "쇼핑",
+                "cafe": "카페"
+            }
+        korean_categories = [CAT_MAP.get(cat, cat) for cat in request.categories]
+        categories_str = ", ".join(korean_categories)
+        
         system_prompt = f"""
         너는 '서울 여행 장소 추천 전문가'이다. 반드시 제공된 데이터만을 사용하여 계획을 세운다.
         [입력 정보]
         여행 기간: 총 {days}일 (입력된 days 값에 맞춰 'day1'부터 'day{days}'까지 생성할 것)
+        [관심 장소 카테고리]
+        {categories_str}를(을) 적절한 비율로 추천해줘.
         [출력 형식]
         {schema}
         [절대 규칙]
@@ -1189,7 +1200,7 @@ class RouteOptimizerService:
         
         # 3. Gemini 호출 (장소 추천)
         start_gemini = time.time()
-        plan, _ = self._get_gemini_recommendation(total_days, places, restaurants, accommodations)
+        plan, _ = self._get_gemini_recommendation(total_days, places, restaurants, accommodations, request)
         print(f"Gemini 생성 완료 : {round(time.time() - start_gemini, 2)}초")
         if not plan: return {'error': 'AI 추천 실패'}
 
