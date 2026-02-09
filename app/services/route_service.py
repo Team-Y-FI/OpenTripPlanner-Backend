@@ -750,6 +750,7 @@ class RouteOptimizerService:
 
             # [2] 이동 경로 계산
             if i == 1:
+                # 첫 번째 장소는 경로 계산 생략 (transit_info는 아래에서 최종적으로 비움)
                 pass 
             else:
                 dest_traffic_lvl = self._get_traffic_level(node.get('lat'), node.get('lng'), arrival_dt)
@@ -761,7 +762,6 @@ class RouteOptimizerService:
                     for segment in chosen_path:
                         seg_mins = sum(int(m) for m in re.findall(r'(\d+)분', segment))
                         
-                        # 변수 분리: 총 추가 시간, 교통 지연, 상태 태그
                         total_added_min = 0 
                         status_tag = ""
                         
@@ -782,8 +782,8 @@ class RouteOptimizerService:
 
                         # (B) 이동 시간 지연 (도로 혼잡 + 주차)
                         elif "승용차" in segment or "버스" in segment:
-                            traffic_added_min = 0 # 순수 교통 정체 시간
-                            parking_time = 0      # 주차 시간
+                            traffic_added_min = 0 
+                            parking_time = 0      
                             
                             # 1. 교통 정체 계산
                             if dest_traffic_lvl > 0:
@@ -795,7 +795,6 @@ class RouteOptimizerService:
                                 t_txt = {1: "서행", 2: "정체"}.get(dest_traffic_lvl, "")
                                 icon = ICONS.get(dest_traffic_lvl, "")
                                 
-                                # [수정] 교통 태그 생성 시 지연 시간 바로 표기
                                 if traffic_added_min > 0:
                                     status_tag = f" [{icon}{t_txt} (+{traffic_added_min}분)]"
                                 else:
@@ -812,25 +811,20 @@ class RouteOptimizerService:
                         real_mins = seg_mins + total_added_min
                         current_leg_travel_time += real_mins
                         
-                        # 기존 "10분" -> "29분" (기본10 + 정체4 + 주차15)으로 변경
                         segment = re.sub(r'\d+분', f'{real_mins}분', segment)
                         transit_info.append(segment + status_tag)
                 else:
-                    # Fallback (직선거리)
-                    est_min = self._travel_minutes(prev, node, transport_mode) # 주차 포함된 시간 반환됨
+                    # Fallback
+                    est_min = self._travel_minutes(prev, node, transport_mode)
                     current_leg_travel_time += est_min
-                    
                     if transport_mode == "car":
                         msg = f"승용차 이동 : {est_min}분 (주차포함)"
                     else:
                         msg = f"도보/대중교통 이동 : {est_min}분 (경로 정보 없음)"
-                        
                     transit_info.append(msg)
                 
                 arrival_dt = cursor_dt + timedelta(minutes=current_leg_travel_time)
 
-            # ... (이하 도착 시간 보정 및 체류 시간 로직은 기존과 동일) ...
-            
             # [3] 도착 시간 보정 (Smart Departure Logic)
             target_start_dt = None
             if node["type"] in ["lunch", "dinner"]:
@@ -864,6 +858,9 @@ class RouteOptimizerService:
             if wait_min > 0:
                 transit_info.append(f"현장 대기 : {wait_min}분")
                 arrival_dt += timedelta(minutes=wait_min)
+
+            if i == 1:
+                transit_info = []
 
             # [4] 체류 시간 및 라벨링
             final_stay = node["stay"]
@@ -911,7 +908,7 @@ class RouteOptimizerService:
                 "category": node["category"],
                 "category2": node.get("category2", ""),
                 "time": time_str,
-                "transit_to_here": transit_info,
+                "transit_to_here": transit_info, # i==1 이면 빈 리스트가 들어감
                 "population_level": pop_label,
                 "traffic_level": traffic_label
             })
@@ -1160,23 +1157,19 @@ class RouteOptimizerService:
 
         cols = ["name", "category", "category2", "lat", "lng"]
         
-        # 1. 반경 검색 및 데이터 필터링
+        # 1. 반경 검색 및 데이터 필터링 설정
         center = SEOUL_GU_COORDS.get(request.region, {"lat": 37.57, "lng": 126.98})
 
-        categories = request.categories
-
+        # 고정 일정 좌표가 있으면 중심점 변경
         if request.fixed_events:
             for event in request.fixed_events:
-                # 데이터 타입(Dict vs Object) 처리
                 if isinstance(event, dict):
                     e_lat = event.get('lat')
-                    # 입력 데이터가 lon으로 들어올 경우를 대비해 가져오긴 하되, 변수명은 lng로 통일
                     e_lng = event.get('lng') or event.get('lon')
                 else:
                     e_lat = getattr(event, 'lat', None)
                     e_lng = getattr(event, 'lng', None) or getattr(event, 'lon', None)
                 
-                # 유효한 좌표를 발견하면 중심점 변경
                 if e_lat is not None and e_lng is not None:
                     center = {"lat": float(e_lat), "lng": float(e_lng)}
                     print(f"중심점 변경: 고정일정 기준 ({center['lat']}, {center['lng']})")
@@ -1186,44 +1179,77 @@ class RouteOptimizerService:
         df = self.df_places.copy()
         df['dist'] = df.apply(lambda r: self._haversine(center['lat'], center['lng'], r['lat'], r['lng']), axis=1)
         
-        mask = (df['dist'] <= REDIUS) & (~df['category'].isin(['음식점', '숙박']))
-
-        if categories:
-            CAT_MAP = {
-                "attraction": "관광지",
-                "culture": "문화시설",
-                "shopping": "쇼핑",
-                "cafe": "카페"
-            }
-            target_cats = []
-            for c in categories:
-                val = CAT_MAP.get(c, c)
-                target_cats.append(val)
-            
-            if target_cats:
-                mask = mask & (df['category'].isin(target_cats))
-
-        places = df[mask][cols].to_dict('records')
-        print(f"'{request.region}' 중심 반경 {REDIUS}km 내 관광 장소 개수 : {len(places)}개")
-
-        restaurants = df[(df['dist']<=REDIUS) & (df['category']=='음식점')][cols].to_dict('records')
-        print(f"'{request.region}' 중심 반경 {REDIUS}km 내 음식점 개수 : {len(restaurants)}개")
-
-        accommodations = df[(df['dist']<=REDIUS) & (df['category']=='숙박')][cols].to_dict('records')
-        print(f"'{request.region}' 중심 반경 {REDIUS}km 내 숙박시설 개수 : {len(accommodations)}개")
-        
-        # 2. 날짜 계산
+        # 2. 날짜 및 샘플링 개수 계산
         start_dt = datetime.strptime(request.start_date, '%Y-%m-%d')
         end_dt = datetime.strptime(request.end_date, '%Y-%m-%d')
         total_days = (end_dt - start_dt).days + 1
+
+        # 샘플링 한계 설정 (작성하신 로직)
+        sample_limit_places = total_days * 8 * 4  # 일수 * 32 (카테고리별)
+        sample_limit_res = total_days * 4 * 6     # 일수 * 24 (전체)
+        sample_limit_acc = total_days * 2 * 6     # 일수 * 12 (전체)
+
+        # (A) 관광 장소 (Places) - 카테고리별 샘플링
+        # 음식점, 숙박 제외한 마스크 생성
+        mask = (df['dist'] <= REDIUS) & (~df['category'].isin(['음식점', '숙박']))
+
+        # 사용자 요청 카테고리 필터 적용
+        categories = request.categories
+        CAT_MAP = {
+            "attraction": "관광지", 
+            "culture": "문화시설",
+            "shopping": "쇼핑", 
+            "cafe": "카페"
+        }
+
+        # 카테고리가 비어있으면 4개 모두 선택, 있으면 해당 항목만 선택
+        if not categories:
+            target_keys = ["attraction", "culture", "shopping", "cafe"]
+        else:
+            target_keys = categories
+
+        target_cats = [CAT_MAP.get(c, c) for c in target_keys]
+        mask = mask & (df['category'].isin(target_cats))
+
+        filtered_df = df[mask]
+        places = []
+
+        # 카테고리별 그룹핑 및 샘플링
+        for cat, group in filtered_df.groupby('category'):
+            if len(group) > sample_limit_places:
+                sampled_group = group.sample(n=sample_limit_places) # 랜덤 추출
+            else:
+                sampled_group = group
+            
+            places.extend(sampled_group[cols].to_dict('records'))
+
+        print(f"'{request.region}' 관광지 후보 (샘플링됨): {len(places)}개")
+
+        # (B) 음식점 (Restaurants) - 전체 풀에서 샘플링
+        df_rest = df[(df['dist'] <= REDIUS) & (df['category'] == '음식점')]
+
+        if len(df_rest) > sample_limit_res:
+            df_rest = df_rest.sample(n=sample_limit_res)
+
+        restaurants = df_rest[cols].to_dict('records')
+        print(f"'{request.region}' 음식점 후보 (샘플링됨): {len(restaurants)}개")
+
+        # (C) 숙박 (Accommodations) - 전체 풀에서 샘플링
+        df_accom = df[(df['dist'] <= REDIUS) & (df['category'] == '숙박')]
+
+        if len(df_accom) > sample_limit_acc:
+            df_accom = df_accom.sample(n=sample_limit_acc)
+
+        accommodations = df_accom[cols].to_dict('records')
+        print(f"'{request.region}' 숙박시설 후보 (샘플링됨): {len(accommodations)}개")
         
-        # 3. Gemini 호출 (장소 추천)
+        # 3. Gemini 호출
         start_gemini = time.time()
         plan, _ = self._get_gemini_recommendation(total_days, places, restaurants, accommodations, request)
         print(f"Gemini 생성 완료 : {round(time.time() - start_gemini, 2)}초")
         if not plan: return {'error': 'AI 추천 실패'}
 
-        # 4. 병렬 최적화 (경로 순서 및 시간 계산)
+        # 4. 병렬 최적화
         start_opt = time.time()
         print(f"병렬 최적화 시작 ({total_days}일, Mode: {request.transport_mode})")
         
@@ -1231,35 +1257,22 @@ class RouteOptimizerService:
         curr = start_dt
         day_keys = list(plan['plans'].keys())
         
-        # 날짜별 설정값(Tasks) 생성
         for i, day_key in enumerate(day_keys):
-            # (1) 시작 시간 설정
-            # 첫날: 사용자 입력 시작 시간
-            # 그 외: 아침 10:00
-            if i == 0:
-                day_start_time = request.first_day_start_time # 예: "14:00"
-            else:
-                day_start_time = "10:00"
+            # 시간 설정
+            if i == 0: day_start_time = request.first_day_start_time 
+            else: day_start_time = "10:00"
 
-            # (2) 종료 시간 설정
-            # 마지막 날: 사용자 입력 종료 시간
-            # 그 외: 저녁 21:00
-            if i == len(day_keys) - 1:
-                day_end_time = request.last_day_end_time # 예: "18:00"
-            else:
-                day_end_time = "21:00"
+            if i == len(day_keys) - 1: day_end_time = request.last_day_end_time 
+            else: day_end_time = "21:00"
 
-            # (3) 고정 일정 필터링
+            # 고정 일정 추출
             current_date_str = curr.strftime("%Y-%m-%d")
             daily_fixed_events = []
 
             if request.fixed_events:
                 for e in request.fixed_events:
-                    # 날짜 확인
                     e_date = e.get('date') if isinstance(e, dict) else getattr(e, 'date', None)
-                    
                     if e_date == current_date_str:
-                        # 1. 딕셔너리로 변환
                         event_dict = {}
                         if isinstance(e, dict): event_dict = e.copy()
                         elif hasattr(e, 'model_dump'): event_dict = e.model_dump()
@@ -1268,40 +1281,24 @@ class RouteOptimizerService:
                             try: event_dict = vars(e).copy()
                             except: continue
 
-                        # 2. [핵심] 좌표 추출 및 키 통일 (lat, lng)
-                        raw_lat = event_dict.get('lat')
-                        raw_lng = event_dict.get('lng')
-                        
-                        # 좌표 덮어쓰기 (없으면 None)
-                        event_dict['lat'] = raw_lat
-                        event_dict['lng'] = raw_lng
-                        
+                        event_dict['lat'] = event_dict.get('lat')
+                        event_dict['lng'] = event_dict.get('lng')
                         daily_fixed_events.append(event_dict)
 
-            tasks.append((
-                day_key,                # 0: day_key (e.g., "day1")
-                current_date_str,       # 1: 날짜 문자열
-                day_start_time,         # 2: 시작 시간
-                day_end_time,           # 3: 종료 시간
-                daily_fixed_events      # 4: 고정 일정 리스트
-            ))
-            
+            tasks.append((day_key, current_date_str, day_start_time, day_end_time, daily_fixed_events))
             curr += timedelta(days=1)
             
-        # ThreadPoolExecutor로 병렬 실행
         with ThreadPoolExecutor(min(total_days, 4)) as ex:
-            # lambda를 통해 _optimize_day 호출
             results = list(ex.map(lambda task: (task[0], self._optimize_day(
                 places=plan['plans'][task[0]]['route'], 
                 restaurants=plan['plans'][task[0]]['restaurants'], 
-                fixed_events=task[4],             # daily_fixed_events
-                start_time_str=task[2],           # day_start_time
-                target_date_str=task[1],          # current_date_str
-                end_time_str=task[3],             # day_end_time
+                fixed_events=task[4],             
+                start_time_str=task[2],           
+                target_date_str=task[1],          
+                end_time_str=task[3],             
                 transport_mode=request.transport_mode
             )), tasks))
             
-        # 5. 결과 조합
         final_result = {k: plan['plans'][k] for k in plan['plans']}
         for key, res in results:
             final_result[key]['timelines'] = res
@@ -1309,15 +1306,11 @@ class RouteOptimizerService:
         for task in tasks:
             day_key = task[0]
             daily_fixed = task[4]
-
             if daily_fixed:
-                if 'route' not in final_result[day_key]:
-                    final_result[day_key]['route'] = []
-                
+                if 'route' not in final_result[day_key]: final_result[day_key]['route'] = []
                 final_result[day_key]['route'].extend(daily_fixed)
 
         print(f"병렬 최적화 완료 : {round(time.time() - start_opt, 2)}초")
-
         total_end_time = time.time()
         print(f"[Total] 전체 프로세스 완료: {total_end_time - total_start_time:.2f}초")
 
@@ -1325,4 +1318,5 @@ class RouteOptimizerService:
                 json.dump(final_result, f, ensure_ascii=False, indent=2)
 
         return final_result
+    
 route_service = RouteOptimizerService()
