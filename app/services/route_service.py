@@ -1,4 +1,4 @@
-import os, pickle, re, time, math, json, zipfile, joblib, copy
+import os, pickle, re, time, math, json, zipfile, joblib, copy, random
 import multiprocessing
 import pandas as pd
 import geopandas as gpd
@@ -493,10 +493,24 @@ class RouteOptimizerService:
         
         for s, e in trip_legs:
             if s['id'] == e['id']: continue
+
+            is_gap_filler_move = (s.get("type") == "gap_filler") or (e.get("type") == "gap_filler")
+            dist_km = self._haversine(s['lat'], s['lng'], e['lat'], e['lng'])
+
+            if is_gap_filler_move and dist_km < 0.8:
+                walk_min = int(dist_km / 4 * 60) + 2
+                walk_msg = f"도보 : {walk_min}분"
+                path_map[(s['id'], e['id'])] = {
+                    "fastest": [walk_msg], 
+                    "min_transfer": [walk_msg]
+                }
+                continue
+
             ckey = self._make_cache_key(s, e, departure_time)
             if ckey in self.detailed_path_cache:
                 path_map[(s['id'], e['id'])] = self.detailed_path_cache[ckey]
                 continue
+
             if s.get('lat') is None or e.get('lat') is None:
                 path_map[(s['id'], e['id'])] = {"fastest": [f"이동 : {FALLBACK_MOVE_MIN}분"], "min_transfer": [f"이동 : {FALLBACK_MOVE_MIN}분"]}
                 continue
@@ -1022,23 +1036,98 @@ class RouteOptimizerService:
             node['arrival_min'] = arrival_times[idx]
             visited_nodes.append(node)
 
+        # 6-1. 틈새 카페 끼워넣기 (30~60분 랜덤)
+        final_nodes = []
+        if len(visited_nodes) > 0:
+            final_nodes.append(visited_nodes[0])
+        
+        if self.df_places is not None:
+            df_cafes = self.df_places[self.df_places['category'] == '카페'].copy()
+        else:
+            df_cafes = pd.DataFrame()
+        
+        curr_time_cursor = visited_nodes[0]['arrival_min'] + visited_nodes[0]['stay']
+
+        for i in range(1, len(visited_nodes)):
+            curr_node = visited_nodes[i-1]
+            next_node = visited_nodes[i]
+
+            travel_min = time_matrix[curr_node['id']][next_node['id']]
+            expected_arrival = curr_time_cursor + travel_min
+
+            target_start_time = None
+            if next_node["type"] == "lunch": target_start_time = l_s
+            elif next_node["type"] == "dinner": target_start_time = d_s
+            elif next_node["type"] == "fixed": target_start_time = next_node["window"][0]
+
+            inserted_cafe = False
+
+            if target_start_time and (target_start_time - expected_arrival >= 30) and not df_cafes.empty:
+                gap_min = target_start_time - expected_arrival
+
+                if next_node.get('lat') and curr_node.get('lng'):
+                    df_cafes['temp_dist'] = df_cafes.apply(
+                        lambda r: self._haversine(next_node['lat'], next_node['lng'], r['lat'], r['lng']), 
+                        axis=1
+                    )
+
+                    existing_names = set(n['name'] for n in visited_nodes)
+                    nearby_cafes = df_cafes[
+                        (df_cafes['temp_dist'] <= 0.5) & 
+                        (~df_cafes['name'].isin(existing_names))
+                    ].sort_values('temp_dist')
+
+                    if not nearby_cafes.empty:
+                        cafe_row = nearby_cafes.iloc[0]
+
+                        random_stay = random.randint(30, 60)
+                        stay_for_cafe = min(random_stay, gap_min - 20)
+
+                        if stay_for_cafe >= 20:
+                            cafe_node = {
+                                "id": 9999 + i,
+                                "name": cafe_row['name'],
+                                "category": "카페",
+                                "category2": cafe_row.get('category2', "카페"),
+                                "lat": cafe_row['lat'],
+                                "lng": cafe_row['lng'],
+                                "stay": stay_for_cafe, 
+                                "type": "gap_filler",
+                                "arrival_min": curr_time_cursor + travel_min
+                            }
+
+                            print(f"[Gap Filling] {next_node['name']} 근처 카페 '{cafe_node['name']}' 추가 (여유: {gap_min}분, 체류: {stay_for_cafe}분)")
+                            final_nodes.append(cafe_node)
+
+                            curr_time_cursor = cafe_node['arrival_min'] + stay_for_cafe
+                            inserted_cafe = True
+            
+            if inserted_cafe:
+                cafe_to_next = self._travel_minutes(final_nodes[-1], next_node, transport_mode)
+                next_node['arrival_min'] = curr_time_cursor + cafe_to_next
+            else:
+                next_node['arrival_min'] = expected_arrival
+
+            final_nodes.append(next_node)
+            curr_time_cursor = next_node['arrival_min'] + next_node['stay']
+        
+        visited_nodes = final_nodes
+
         # 7. 타임라인 상세 경로 생성 (상세 이동 수단 등)
         start_detail_path = time.time()
         trip_legs = [(visited_nodes[i], visited_nodes[i+1]) for i in range(len(visited_nodes)-1)]
         path_map = self._get_all_detailed_paths(trip_legs, r5_dep, transport_mode, cached_times=r5_times)
         print(f"상세경로 생성 완료 : {round(time.time() - start_detail_path, 2)}초")
 
-        # 타임라인 생성용 기준 시간
         timeline_base_dt = datetime.combine(base_date, datetime.min.time())
 
-        # 결과 딕셔너리 생성
-        res_key = "fastest_version" if transport_mode == "car" else "fastest_version"
+        res_key = "fastest_version"
         result = {res_key: self._build_timeline_by_type(visited_nodes, path_map, timeline_base_dt, target_date_str, "fastest", transport_mode)}
 
         if transport_mode != "car":
             result["min_transfer_version"] = self._build_timeline_by_type(visited_nodes, path_map, timeline_base_dt, target_date_str, "min_transfer", transport_mode)
         
-        return result
+        return result, visited_nodes
     # ========== Gemini AI 및 기타 유틸 (원본 복구) ==========
 
     def _extract_json(self, text):
@@ -1300,15 +1389,23 @@ class RouteOptimizerService:
             )), tasks))
             
         final_result = {k: plan['plans'][k] for k in plan['plans']}
-        for key, res in results:
-            final_result[key]['timelines'] = res
 
-        for task in tasks:
-            day_key = task[0]
-            daily_fixed = task[4]
-            if daily_fixed:
-                if 'route' not in final_result[day_key]: final_result[day_key]['route'] = []
-                final_result[day_key]['route'].extend(daily_fixed)
+        for key, (timelines, updated_nodes) in results:
+            final_result[key]['timelines'] = timelines
+            clean_route_list = []
+            for node in updated_nodes:
+                if node['type'] == 'depot': continue
+
+                clean_node = {
+                    "name": node['name'],
+                    "category": node['category'],
+                    "category2": node.get('category2', ""),
+                    "lat": node['lat'],
+                    "lng": node['lng']
+                }
+                clean_route_list.append(clean_node)
+        
+            final_result[key]['route'] = clean_route_list
 
         print(f"병렬 최적화 완료 : {round(time.time() - start_opt, 2)}초")
         total_end_time = time.time()
