@@ -36,6 +36,7 @@ class PlanService:
 
             # [DEBUG] 로그 추가
             print(f"[DEBUG] 요청 모드 확인: {payload.get('transport_mode')}")
+            print(f"[DEBUG] 여행 목적(purposes) 확인: {payload.get('purposes')}")
 
             # RouteService 요청 객체 생성 (들어온 payload 데이터를 그대로 활용)
             request_data = PlanGenerateRequest(
@@ -46,6 +47,7 @@ class PlanService:
                 last_day_end_time=payload["last_day_end_time"],
                 fixed_events=fixed_events,
                 categories=payload.get("categories", []),
+                purposes=payload.get("purposes", []),
                 # ✅ [수정] transport_mode 추가 (기본값 'transport')
                 transport_mode=payload.get("transport_mode", "transport") 
             )
@@ -73,7 +75,8 @@ class PlanService:
                 "end_date": payload["end_date"],
                 "transport": payload.get("transport", "public"),
                 "crowd_mode": payload.get("crowd_mode", "default"),
-                "transport_mode": request_data.transport_mode
+                "transport_mode": request_data.transport_mode,
+                "purposes": payload.get("purposes", [])
             }
         }
         

@@ -1088,17 +1088,37 @@ class RouteOptimizerService:
                 "shopping": "쇼핑",
                 "cafe": "카페"
             }
+        
+        PURPOSE_MAP = {
+            "date": "데이트",
+            "solo": "혼자 시간",
+            "friends": "친구들과",
+            "family": "가족 나들이",
+            "photo": "사진 찍기",
+            "gourmet": "맛집 위주"
+        }
+
         korean_categories = [CAT_MAP.get(cat, cat) for cat in request.categories]
         categories_str = ", ".join(korean_categories)
+
+        korean_purposes = [PURPOSE_MAP.get(p, p) for p in request.purposes]
+        purposes_str = ", ".join(korean_purposes)
         
         system_prompt = f"""
         너는 '서울 여행 장소 추천 전문가'이다. 반드시 제공된 데이터만을 사용하여 계획을 세운다.
+
         [입력 정보]
         여행 기간: 총 {days}일 (입력된 days 값에 맞춰 'day1'부터 'day{days}'까지 생성할 것)
+
         [관심 장소 카테고리]
         {categories_str}를(을) 적절한 비율로 추천해줘.
+
+        [여행 테마 및 목적]
+        {purposes_str} (이 테마에 어울리는 분위기의 장소와 식당을 우선적으로 배치해줘)
+
         [출력 형식]
         {schema}
+
         [절대 규칙]
         1. 모든 장소의 이름, 좌표(lat, lng), 카테고리는 입력된 데이터와 100% 일치해야 한다.
         2. 'route' 배열: 제공된 'places' 목록에서 8개를 선택
@@ -1119,7 +1139,7 @@ class RouteOptimizerService:
             print("Gemini가 초기 계획을 생성하고 있습니다...")
             prompt = system_prompt + "\n\n" + json.dumps(user_prompt, ensure_ascii=False)
             response = client.models.generate_content(
-                model="gemini-2.5-flash-lite", contents=prompt, config={"temperature": 0}
+                model="gemini-2.5-flash-lite", contents=prompt
             )
             plan = self._extract_json(response.text)
             
