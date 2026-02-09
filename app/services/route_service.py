@@ -297,6 +297,7 @@ class RouteOptimizerService:
         try:
             if os.path.exists(PLACE_FILE):
                 self.df_places = pd.read_excel(PLACE_FILE)
+                self.df_places = self.df_places.fillna("")
                 print(f"장소 데이터: {len(self.df_places)}개")
         except: self.df_places = None
 
@@ -444,7 +445,7 @@ class RouteOptimizerService:
             return r5_travel_times
         except: return {}
     
-    def _make_cache_key(self, start_node, end_node, departure_time):
+    def _make_cache_key(self, start_node, end_node, departure_time, transport_mode):
         s_lat = start_node.get('lat')
         s_lng = start_node.get('lng')
         e_lat = end_node.get('lat')
@@ -462,7 +463,8 @@ class RouteOptimizerService:
             end_node.get('name'), 
             round(safe_e_lat, 6), 
             round(safe_e_lng, 6), 
-            departure_time.hour
+            departure_time.hour,
+            transport_mode
         )
     
     def _get_all_detailed_paths(self, trip_legs, departure_time, transport_mode="transport", cached_times=None):
@@ -497,7 +499,7 @@ class RouteOptimizerService:
             is_gap_filler_move = (s.get("type") == "gap_filler") or (e.get("type") == "gap_filler")
             dist_km = self._haversine(s['lat'], s['lng'], e['lat'], e['lng'])
 
-            if is_gap_filler_move and dist_km < 0.8:
+            if is_gap_filler_move and dist_km < 1.5:
                 walk_min = int(dist_km / 4 * 60) + 2
                 walk_msg = f"도보 : {walk_min}분"
                 path_map[(s['id'], e['id'])] = {
@@ -506,7 +508,7 @@ class RouteOptimizerService:
                 }
                 continue
 
-            ckey = self._make_cache_key(s, e, departure_time)
+            ckey = self._make_cache_key(s, e, departure_time, transport_mode)
             if ckey in self.detailed_path_cache:
                 path_map[(s['id'], e['id'])] = self.detailed_path_cache[ckey]
                 continue
@@ -523,8 +525,8 @@ class RouteOptimizerService:
         dgdf = gpd.GeoDataFrame(dests, geometry=gpd.points_from_xy([n['lng'] for n in dests], [n['lat'] for n in dests]), crs='EPSG:4326')
         dgdf['id'] = [n['id'] for n in dests]
         
-        modes = [TransportMode.CAR] if transport_mode == "car" else [TransportMode.WALK, TransportMode.TRANSIT]
-        max_rides = 0 if transport_mode == "car" else MAX_TRANSFERS
+        modes = [TransportMode.WALK, TransportMode.TRANSIT]
+        max_rides = MAX_TRANSFERS
 
         try:
             computer = DetailedItineraries(self.transport_network, origins=ogdf, destinations=dgdf, departure=departure_time, transport_modes=modes, max_public_transport_rides=max_rides, max_time=timedelta(minutes=MAX_TRAVEL_TIME_MIN))
@@ -559,43 +561,35 @@ class RouteOptimizerService:
                         wait_time = 1
 
                 if wait_time > 0 and 'WALK' not in raw_mode: segs.append(f"대기 : {wait_time}분")
-                if 'CAR' in raw_mode: segs.append(f"승용차 이동 : {ride_time}분")
-                elif 'WALK' in raw_mode: segs.append(f"도보 : {ride_time}분")
+                
+                # [수정] 대중교통 모드인데 CAR가 나오면 이상하므로 체크
+                if 'CAR' in raw_mode: 
+                    segs.append(f"승용차 이동 : {ride_time}분")
+                elif 'WALK' in raw_mode:
+                    segs.append(f"도보 : {ride_time}분")
                 else:
                     f_id = clean_id(leg.get('from_stop_id') or leg.get('start_stop_id'))
                     t_id = clean_id(leg.get('to_stop_id') or leg.get('end_stop_id'))
-                    
                     f_name = self.stop_id_to_name.get(f_id, "정류장")
                     t_name = self.stop_id_to_name.get(t_id, "정류장")
-                    
                     mode_nm = "지하철" if any(x in raw_mode for x in ['SUBWAY', 'RAIL', 'METRO']) else "버스"
                     
-                    # 버스일 경우 모든 가능한 노선 찾기
                     display_route_name = ""
                     if mode_nm == "버스":
-                        # 1. 출발 정류장에 서는 노선들
                         routes_at_start = self.stop_route_map.get(f_id, set())
-                        # 2. 도착 정류장에 서는 노선들
                         routes_at_end = self.stop_route_map.get(t_id, set())
-                        # 3. 교집합 (두 정류장을 모두 지나는 노선들)
                         common_routes = routes_at_start.intersection(routes_at_end)
-                        
                         if common_routes:
-                            # ID를 사람이 읽을 수 있는 번호(short_name)로 변환
                             route_names = []
                             for rid in common_routes:
                                 r_name = self.route_id_to_name.get(rid)
-                                if r_name:
-                                    route_names.append(str(r_name))
-                            # 정렬 및 중복 제거
+                                if r_name: route_names.append(str(r_name))
                             unique_routes = sorted(list(set(route_names)))
                             display_route_name = ", ".join(unique_routes)
                         else:
-                            # 데이터 매핑 실패 시 기존 방식(단일 노선) fallback
                             route_key = clean_id(leg.get('route_id'))
                             display_route_name = self.route_id_to_name.get(route_key, "대중교통")
                     else:
-                        # 지하철은 호선이 중요하므로 단일 노선 유지 (또는 동일 로직 적용 가능)
                         route_key = clean_id(leg.get('route_id'))
                         display_route_name = self.route_id_to_name.get(route_key, "대중교통")
 
@@ -607,7 +601,7 @@ class RouteOptimizerService:
             e_node = next((n for n in dests if n['id'] == int(t_id)), None)
             if not s_node or not e_node: continue
             
-            safe_key = self._make_cache_key(s_node, e_node, departure_time)
+            safe_key = self._make_cache_key(s_node, e_node, departure_time, transport_mode)
             options = []
             for _, opt in group.groupby("option"):
                 total_min = sum(get_minutes_ceil(leg.get('travel_time') or leg.get('duration')) for _, leg in opt.iterrows())
@@ -626,6 +620,7 @@ class RouteOptimizerService:
             entry = {"fastest": parse_segments(fastest['route']), "min_transfer": parse_segments(winner['route']) if winner else [f"도보 : {FALLBACK_MOVE_MIN}분"]}
             path_map[(int(f_id), int(t_id))] = entry
             self.detailed_path_cache[safe_key] = entry
+        
         return path_map
 
     # ========== 노드 빌더 (고정 일정 포함) ==========
@@ -703,7 +698,8 @@ class RouteOptimizerService:
                 "lat": places[0]["lat"] if places else 37.5665,
                 "lng": places[0]["lng"] if places else 126.9780,
                 "stay": 0,
-                "type": "depot"
+                "type": "depot",
+                "addr": ""
                 })
         
         # 2. 관광지 추가
@@ -714,7 +710,8 @@ class RouteOptimizerService:
                 "category2": p.get("category2", ""),
                 "lat": p.get("lat"), "lng": p.get("lng"),
                 "stay": stay_time_map.get(p.get("category"), 60),
-                "type": "spot"
+                "type": "spot",
+                "addr": p.get("address") or p.get("addr", "")
                 })
         
         # 3. 식당 후보군 전체 등록
@@ -725,7 +722,8 @@ class RouteOptimizerService:
                 "category2": r.get("category2", "음식점"),
                 "lat": r.get("lat"), "lng": r.get("lng"),
                 "stay": 70,
-                "type": "lunch"  # 점심 타입
+                "type": "lunch",  # 점심 타입
+                "addr": r.get("address") or r.get("addr", "")
                 })
             
             nodes.append({
@@ -734,7 +732,8 @@ class RouteOptimizerService:
                 "category2": r.get("category2", "음식점"),
                 "lat": r.get("lat"), "lng": r.get("lng"),
                 "stay": 70,
-                "type": "dinner" # 저녁 타입
+                "type": "dinner", # 저녁 타입
+                "addr": r.get("address") or r.get("addr", "")
                 })
         
         # 고정 일정 빌더 호출
@@ -957,7 +956,7 @@ class RouteOptimizerService:
 
         for node in solver_nodes:
             if node["type"] == "spot":
-                node["stay"] = int(node["stay"] * 1.1)
+                node["stay"] = int(node["stay"] * 1.2)
 
             elif node["type"] in ["lunch", "dinner"]:
                 node["stay"] = int(node["stay"] * 1.2)
@@ -986,8 +985,8 @@ class RouteOptimizerService:
                 if transport_mode == 'car':
                     val += 15
                 
-                # [이동 시간 여유] 10% 추가 (기존 30% -> 10%로 축소)
-                val = int(val * 1.1)
+                # [이동 시간 여유] 20% 추가 (기존 30% -> 10%로 축소)
+                val = int(val * 1.2)
                 time_matrix[i][j] = int(val)
 
 
@@ -1036,7 +1035,7 @@ class RouteOptimizerService:
             node['arrival_min'] = arrival_times[idx]
             visited_nodes.append(node)
 
-        # 6-1. 틈새 카페 끼워넣기 (30~60분 랜덤)
+        # 6-1. 틈새 카페 끼워넣기
         final_nodes = []
         if len(visited_nodes) > 0:
             final_nodes.append(visited_nodes[0])
@@ -1052,8 +1051,8 @@ class RouteOptimizerService:
             curr_node = visited_nodes[i-1]
             next_node = visited_nodes[i]
 
-            travel_min = time_matrix[curr_node['id']][next_node['id']]
-            expected_arrival = curr_time_cursor + travel_min
+            original_travel_min = time_matrix[curr_node['id']][next_node['id']]
+            expected_arrival = curr_time_cursor + original_travel_min
 
             target_start_time = None
             if next_node["type"] == "lunch": target_start_time = l_s
@@ -1062,7 +1061,7 @@ class RouteOptimizerService:
 
             inserted_cafe = False
 
-            if target_start_time and (target_start_time - expected_arrival >= 30) and not df_cafes.empty:
+            if target_start_time and (target_start_time - expected_arrival >= 50) and not df_cafes.empty:
                 gap_min = target_start_time - expected_arrival
 
                 if next_node.get('lat') and curr_node.get('lng'):
@@ -1080,10 +1079,15 @@ class RouteOptimizerService:
                     if not nearby_cafes.empty:
                         cafe_row = nearby_cafes.iloc[0]
 
-                        random_stay = random.randint(30, 60)
-                        stay_for_cafe = min(random_stay, gap_min - 20)
+                        safe_buffer = 25
+                        available_stay_time = gap_min - safe_buffer
+                        stay_for_cafe = min(available_stay_time, 50)
 
-                        if stay_for_cafe >= 20:
+                        cafe_arrival = curr_time_cursor + original_travel_min
+                        cafe_departure = cafe_arrival + stay_for_cafe
+                        final_arrival_at_next = cafe_departure + 10
+
+                        if stay_for_cafe >= 20 and (final_arrival_at_next <= target_start_time - 15):
                             cafe_node = {
                                 "id": 9999 + i,
                                 "name": cafe_row['name'],
@@ -1091,9 +1095,10 @@ class RouteOptimizerService:
                                 "category2": cafe_row.get('category2', "카페"),
                                 "lat": cafe_row['lat'],
                                 "lng": cafe_row['lng'],
-                                "stay": stay_for_cafe, 
+                                "stay": int(stay_for_cafe),
+                                "addr": cafe_row.get("address", ""),
                                 "type": "gap_filler",
-                                "arrival_min": curr_time_cursor + travel_min
+                                "arrival_min": curr_time_cursor + original_travel_min
                             }
 
                             print(f"[Gap Filling] {next_node['name']} 근처 카페 '{cafe_node['name']}' 추가 (여유: {gap_min}분, 체류: {stay_for_cafe}분)")
@@ -1101,9 +1106,12 @@ class RouteOptimizerService:
 
                             curr_time_cursor = cafe_node['arrival_min'] + stay_for_cafe
                             inserted_cafe = True
+                        else:
+                            print(f"[Gap Filling] 스킵: 여유({gap_min}분)는 있으나 안전 마진 확보 불가")
             
             if inserted_cafe:
                 cafe_to_next = self._travel_minutes(final_nodes[-1], next_node, transport_mode)
+                cafe_to_next = max(cafe_to_next, 10)
                 next_node['arrival_min'] = curr_time_cursor + cafe_to_next
             else:
                 next_node['arrival_min'] = expected_arrival
@@ -1244,12 +1252,12 @@ class RouteOptimizerService:
         if not self.is_initialized: self.initialize_resources()
         if self.df_places is None: return {'error': '장소 데이터를 불러올 수 없습니다'}
 
-        cols = ["name", "category", "category2", "lat", "lng"]
-        
+        self.detailed_path_cache = {}
+
         # 1. 반경 검색 및 데이터 필터링 설정
+        cols = ["name", "category", "category2", "lat", "lng", "address"]
         center = SEOUL_GU_COORDS.get(request.region, {"lat": 37.57, "lng": 126.98})
 
-        # 고정 일정 좌표가 있으면 중심점 변경
         if request.fixed_events:
             for event in request.fixed_events:
                 if isinstance(event, dict):
@@ -1268,34 +1276,21 @@ class RouteOptimizerService:
         df = self.df_places.copy()
         df['dist'] = df.apply(lambda r: self._haversine(center['lat'], center['lng'], r['lat'], r['lng']), axis=1)
         
-        # 2. 날짜 및 샘플링 개수 계산
         start_dt = datetime.strptime(request.start_date, '%Y-%m-%d')
         end_dt = datetime.strptime(request.end_date, '%Y-%m-%d')
         total_days = (end_dt - start_dt).days + 1
 
-        # 샘플링 한계 설정 (작성하신 로직)
-        sample_limit_places = total_days * 8 * 4  # 일수 * 32 (카테고리별)
-        sample_limit_res = total_days * 4 * 6     # 일수 * 24 (전체)
-        sample_limit_acc = total_days * 2 * 6     # 일수 * 12 (전체)
+        sample_limit_places = total_days * 8 * 4 
+        sample_limit_res = total_days * 4 * 6 
+        sample_limit_acc = total_days * 2 * 6 
 
-        # (A) 관광 장소 (Places) - 카테고리별 샘플링
-        # 음식점, 숙박 제외한 마스크 생성
         mask = (df['dist'] <= REDIUS) & (~df['category'].isin(['음식점', '숙박']))
 
-        # 사용자 요청 카테고리 필터 적용
         categories = request.categories
-        CAT_MAP = {
-            "attraction": "관광지", 
-            "culture": "문화시설",
-            "shopping": "쇼핑", 
-            "cafe": "카페"
-        }
+        CAT_MAP = { "attraction": "관광지", "culture": "문화시설", "shopping": "쇼핑", "cafe": "카페" }
 
-        # 카테고리가 비어있으면 4개 모두 선택, 있으면 해당 항목만 선택
-        if not categories:
-            target_keys = ["attraction", "culture", "shopping", "cafe"]
-        else:
-            target_keys = categories
+        if not categories: target_keys = ["attraction", "culture", "shopping", "cafe"]
+        else: target_keys = categories
 
         target_cats = [CAT_MAP.get(c, c) for c in target_keys]
         mask = mask & (df['category'].isin(target_cats))
@@ -1303,32 +1298,22 @@ class RouteOptimizerService:
         filtered_df = df[mask]
         places = []
 
-        # 카테고리별 그룹핑 및 샘플링
         for cat, group in filtered_df.groupby('category'):
             if len(group) > sample_limit_places:
-                sampled_group = group.sample(n=sample_limit_places) # 랜덤 추출
+                sampled_group = group.sample(n=sample_limit_places)
             else:
                 sampled_group = group
-            
             places.extend(sampled_group[cols].to_dict('records'))
 
         print(f"'{request.region}' 관광지 후보 (샘플링됨): {len(places)}개")
 
-        # (B) 음식점 (Restaurants) - 전체 풀에서 샘플링
         df_rest = df[(df['dist'] <= REDIUS) & (df['category'] == '음식점')]
-
-        if len(df_rest) > sample_limit_res:
-            df_rest = df_rest.sample(n=sample_limit_res)
-
+        if len(df_rest) > sample_limit_res: df_rest = df_rest.sample(n=sample_limit_res)
         restaurants = df_rest[cols].to_dict('records')
         print(f"'{request.region}' 음식점 후보 (샘플링됨): {len(restaurants)}개")
 
-        # (C) 숙박 (Accommodations) - 전체 풀에서 샘플링
         df_accom = df[(df['dist'] <= REDIUS) & (df['category'] == '숙박')]
-
-        if len(df_accom) > sample_limit_acc:
-            df_accom = df_accom.sample(n=sample_limit_acc)
-
+        if len(df_accom) > sample_limit_acc: df_accom = df_accom.sample(n=sample_limit_acc)
         accommodations = df_accom[cols].to_dict('records')
         print(f"'{request.region}' 숙박시설 후보 (샘플링됨): {len(accommodations)}개")
         
@@ -1337,6 +1322,25 @@ class RouteOptimizerService:
         plan, _ = self._get_gemini_recommendation(total_days, places, restaurants, accommodations, request)
         print(f"Gemini 생성 완료 : {round(time.time() - start_gemini, 2)}초")
         if not plan: return {'error': 'AI 추천 실패'}
+
+        # [핵심] Gemini 결과에 주소(address, addr) 강제 주입
+        name_to_addr = df.set_index("name")["address"].to_dict()
+
+        for day_key, day_plan in plan['plans'].items():
+            # 1. Route 리스트
+            if 'route' in day_plan:
+                for item in day_plan['route']:
+                    item['addr'] = name_to_addr.get(item['name'], "")
+            
+            # 2. Restaurants 리스트 (이제 addr 하나만 들어갑니다)
+            if 'restaurants' in day_plan:
+                for item in day_plan['restaurants']:
+                    item['addr'] = name_to_addr.get(item['name'], "")
+
+            # 3. Accommodations 리스트 (이제 addr 하나만 들어갑니다)
+            if 'accommodations' in day_plan:
+                for item in day_plan['accommodations']:
+                    item['addr'] = name_to_addr.get(item['name'], "")
 
         # 4. 병렬 최적화
         start_opt = time.time()
@@ -1347,14 +1351,12 @@ class RouteOptimizerService:
         day_keys = list(plan['plans'].keys())
         
         for i, day_key in enumerate(day_keys):
-            # 시간 설정
             if i == 0: day_start_time = request.first_day_start_time 
             else: day_start_time = "10:00"
 
             if i == len(day_keys) - 1: day_end_time = request.last_day_end_time 
             else: day_end_time = "21:00"
 
-            # 고정 일정 추출
             current_date_str = curr.strftime("%Y-%m-%d")
             daily_fixed_events = []
 
@@ -1372,6 +1374,7 @@ class RouteOptimizerService:
 
                         event_dict['lat'] = event_dict.get('lat')
                         event_dict['lng'] = event_dict.get('lng')
+                        event_dict['addr'] = event_dict.get('address') or event_dict.get('addr', "")
                         daily_fixed_events.append(event_dict)
 
             tasks.append((day_key, current_date_str, day_start_time, day_end_time, daily_fixed_events))
@@ -1389,22 +1392,24 @@ class RouteOptimizerService:
             )), tasks))
             
         final_result = {k: plan['plans'][k] for k in plan['plans']}
-
+        
         for key, (timelines, updated_nodes) in results:
             final_result[key]['timelines'] = timelines
+            
             clean_route_list = []
             for node in updated_nodes:
                 if node['type'] == 'depot': continue
-
+                
                 clean_node = {
                     "name": node['name'],
                     "category": node['category'],
                     "category2": node.get('category2', ""),
                     "lat": node['lat'],
-                    "lng": node['lng']
+                    "lng": node['lng'],
+                    "addr": node.get("addr", "") 
                 }
                 clean_route_list.append(clean_node)
-        
+            
             final_result[key]['route'] = clean_route_list
 
         print(f"병렬 최적화 완료 : {round(time.time() - start_opt, 2)}초")
