@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -46,13 +45,17 @@ if origins:
 
 # ✅ import 단계에서 디렉토리 생성/권한 문제로 죽지 않게: check_dir=False
 storage_dir = Path(settings.STORAGE_DIR)
-app.mount("/storage", StaticFiles(directory=str(storage_dir), check_dir=False), name="storage")
+is_local_storage = (settings.STORAGE_BACKEND or "local").strip().lower() == "local"
+if is_local_storage:
+    app.mount("/storage", StaticFiles(directory=str(storage_dir), check_dir=False), name="storage")
 
 app.include_router(api_router, prefix="/otp")
 register_exception_handlers(app)
 
 @app.on_event("startup")
 async def startup():
+    if not is_local_storage:
+        return
     # ✅ 서버 실행 시점에 디렉토리 생성 시도(권한 없으면 경고만)
     try:
         storage_dir.mkdir(parents=True, exist_ok=True)

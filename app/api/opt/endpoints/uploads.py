@@ -7,7 +7,7 @@ from app.core.exceptions import AppError
 from app.schemas.upload import PlaceIn
 from app.services.upload_service import UploadService
 from app.services.geocoding_service import GeocodingService
-from app.services.storage_service import LocalStorageService
+from app.services.storage_service import get_storage_service
 
 router = APIRouter()
 
@@ -19,7 +19,7 @@ async def upload_photos(
     user=Depends(get_current_user),
 ):
     svc = UploadService(db)
-    storage = LocalStorageService()
+    storage = get_storage_service()
 
     try:
         upload, photos = await svc.create_upload_with_photos(user.user_id, files, exif_required=exif_required)
@@ -65,7 +65,7 @@ async def get_upload_status(
     user=Depends(get_current_user),
 ):
     svc = UploadService(db)
-    storage = LocalStorageService()
+    storage = get_storage_service()
 
     upload, photos = await svc.get_upload_status(user.user_id, upload_id)
     if not upload:
@@ -107,7 +107,7 @@ async def set_place(
     user=Depends(get_current_user),
 ):
     svc = UploadService(db)
-    storage = LocalStorageService()
+    storage = get_storage_service()
     place_data = place.model_dump()
 
     if place_data.get("lat") is None or place_data.get("lng") is None:
