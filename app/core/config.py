@@ -34,6 +34,7 @@ class Settings(BaseSettings):
 
     REDIS_URL: str | None = None
     GOOGLE_API_KEY: str | None = None
+    KAKAO_REST_API_KEY: str | None = None  # 카카오 REST API 키 (역지오코딩용)
 
     # ✅ SMTP (Gmail)
     SMTP_HOST: str = "smtp.gmail.com"
