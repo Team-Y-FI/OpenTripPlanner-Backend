@@ -3,18 +3,87 @@ from app.core.config import settings
 from app.core.exceptions import AppError
 
 class GeocodingService:
-    BASE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
+    GOOGLE_BASE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
+    KAKAO_BASE_URL = "https://dapi.kakao.com/v2/local/geo/coord2address.json"
 
     def __init__(self):
-        self.api_key = settings.GOOGLE_API_KEY
+        self.google_api_key = settings.GOOGLE_API_KEY
+        self.kakao_rest_api_key = getattr(settings, "KAKAO_REST_API_KEY", None)
 
     async def reverse_geocode(self, lat: float, lng: float) -> dict:
-        if not self.api_key:
-            raise AppError("config_error", "GOOGLE_API_KEY not configured", 500)
+        """
+        좌표 → 주소
 
-        params = {"latlng": f"{lat},{lng}", "key": self.api_key, "language": "ko"}
+        - 카카오 REST API 키가 설정된 경우: 카카오 우선 사용
+        - 그렇지 않고 Google API 키가 있는 경우: Google 사용
+        - 둘 다 없으면 설정 오류를 명확히 반환
+
+        ※ 이전 버전처럼 예외를 삼키고 빈 주소를 돌려주면
+        프론트에서는 "주소를 찾을 수 없습니다"만 보이고,
+        실제 어떤 오류인지 알 수 없어서 디버깅이 어려움.
+        """
+        if self.kakao_rest_api_key:
+            return await self._reverse_geocode_kakao(lat, lng)
+
+        if self.google_api_key:
+            return await self._reverse_geocode_google(lat, lng)
+
+        # 설정이 전혀 안 되어 있는 경우는 명확한 에러로 반환
+        raise AppError("config_error", "Geocoding API key not configured", 500)
+
+    async def _reverse_geocode_kakao(self, lat: float, lng: float) -> dict:
+        """카카오 역지오코딩 API 사용"""
+        params = {"x": str(lng), "y": str(lat)}
+        headers = {"Authorization": f"KakaoAK {self.kakao_rest_api_key}"}
+        
         async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(self.BASE_URL, params=params)
+            resp = await client.get(self.KAKAO_BASE_URL, params=params, headers=headers)
+        
+        if resp.status_code != 200:
+            raise AppError("upstream_error", "Kakao geocoding failed", 502)
+        
+        data = resp.json()
+        documents = data.get("documents") or []
+        
+        if not documents:
+            return {"address": None, "road_address": None, "region": None}
+        
+        doc = documents[0]
+        road_address = doc.get("road_address")
+        address = doc.get("address")
+        
+        # 도로명 주소 우선, 없으면 지번 주소
+        road_addr_str = None
+        if road_address:
+            road_addr_str = road_address.get("address_name")
+        
+        addr_str = None
+        if address:
+            addr_str = address.get("address_name")
+        
+        # 지역 정보 추출
+        region = None
+        if address:
+            region_parts = []
+            if address.get("region_1depth_name"):
+                region_parts.append(address.get("region_1depth_name"))
+            if address.get("region_2depth_name"):
+                region_parts.append(address.get("region_2depth_name"))
+            if address.get("region_3depth_name"):
+                region_parts.append(address.get("region_3depth_name"))
+            region = " ".join(region_parts) if region_parts else None
+        
+        return {
+            "address": addr_str,
+            "road_address": road_addr_str,
+            "region": region
+        }
+
+    async def _reverse_geocode_google(self, lat: float, lng: float) -> dict:
+        """Google Maps 역지오코딩 API 사용"""
+        params = {"latlng": f"{lat},{lng}", "key": self.google_api_key, "language": "ko"}
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(self.GOOGLE_BASE_URL, params=params)
 
         if resp.status_code != 200:
             raise AppError("upstream_error", "Geocoding failed", 502)
@@ -38,16 +107,16 @@ class GeocodingService:
         return {"address": address, "road_address": road_address, "region": region}
 
     async def geocode(self, query: str) -> dict:
-        if not self.api_key:
+        if not self.google_api_key:
             raise AppError("config_error", "GOOGLE_API_KEY not configured", 500)
 
         q = (query or "").strip()
         if not q:
             raise AppError("bad_request", "주소 또는 장소명을 입력해주세요.", 400)
 
-        params = {"address": q, "key": self.api_key, "language": "ko"}
+        params = {"address": q, "key": self.google_api_key, "language": "ko"}
         async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(self.BASE_URL, params=params)
+            resp = await client.get(self.GOOGLE_BASE_URL, params=params)
 
         if resp.status_code != 200:
             raise AppError("upstream_error", "Geocoding failed", 502)
