@@ -638,6 +638,7 @@ class RouteOptimizerService:
                 # ✅ [수정] 좌표가 있으면 가져오고, 없으면 None 반환
                 lat = event.get('lat') 
                 lng = event.get('lng')
+                address = event.get('address')
             else:
                 s_str = getattr(event, 'start_time', None) or getattr(event, 'start', None)
                 e_str = getattr(event, 'end_time', None) or getattr(event, 'end', None)
@@ -645,6 +646,7 @@ class RouteOptimizerService:
                 # ✅ [수정] 객체 속성에서 가져오기
                 lat = getattr(event, 'lat', None)
                 lng = getattr(event, 'lng', None)
+                address = getattr(event, 'address', None)
 
             # 필수 데이터(시간) 누락 시 건너뜀
             if not s_str or not e_str: 
@@ -673,9 +675,9 @@ class RouteOptimizerService:
             nodes.append({
                 "name": title,
                 "category": "고정일정",
-                # ✅ [핵심] None이 들어갈 수도, 좌표(float)가 들어갈 수도 있음
                 "lat": lat, 
                 "lng": lng,
+                "addr": address,
                 "stay": stay_duration,
                 "type": "fixed",
                 "window": (window_start, window_end),
