@@ -1164,7 +1164,6 @@ class RouteOptimizerService:
         center = SEOUL_GU_COORDS.get(request.region, {"lat": 37.57, "lng": 126.98})
 
         categories = request.categories
-        print(f"카테고리 확인 : {categories}")
 
         if request.fixed_events:
             for event in request.fixed_events:
