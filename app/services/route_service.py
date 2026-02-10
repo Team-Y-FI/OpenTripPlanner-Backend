@@ -202,7 +202,9 @@ class SimpleRouteSolver:
                 
                 # 1. 점수 배점
                 if node_type == "fixed":
-                    node_score = 2000     
+                    node_score = 2000 
+                elif node_type == "selected":
+                    node_score = 1500
                 elif node_type in ["lunch", "dinner"]:
                     node_score = 500      
                 else:
@@ -686,7 +688,7 @@ class RouteOptimizerService:
 
         return nodes
 
-    def _build_nodes(self, places, restaurants, fixed_events, day_start_dt):
+    def _build_nodes(self, places, restaurants, fixed_events, day_start_dt, selected_places=None):
         nodes = []
 
         # 시작점 (Depot) - 첫 번째 장소 근처 혹은 서울 시청 등 (여기선 places의 첫번째 좌표 활용)
@@ -737,6 +739,19 @@ class RouteOptimizerService:
                 "type": "dinner", # 저녁 타입
                 "addr": r.get("address") or r.get("addr", "")
                 })
+            
+        # 4. 선택된 장소 우선 등록
+        if selected_places:
+            for sp in selected_places:
+                nodes.append({
+                    "name": sp["name"],
+                    "category": sp.get("category", "선택장소"),
+                    "category2": sp.get("category2", "선택장소"),
+                    "lat": sp.get("lat"), "lng": sp.get("lng"),
+                    "stay": stay_time_map.get(sp.get("category"), 60),
+                    "type": "selected",
+                    "addr": sp.get("address") or sp.get("addr", "")
+                })
         
         # 고정 일정 빌더 호출
         nodes.extend(self._build_fixed_nodes(fixed_events, day_start_dt))
@@ -745,194 +760,115 @@ class RouteOptimizerService:
     # ========== 타임라인 생성 (라벨링 적용) ==========
 
     def _build_timeline_by_type(self, visited_nodes, path_map, timeline_base_dt, target_date_str, path_type, transport_mode="transport"):
-
         timeline = []
         if len(visited_nodes) < 2: return []
         
-        cursor_dt = timeline_base_dt 
-        ICONS = {0: "🟢", 1: "🟡", 2: "🔴"}
+        # 시작점(Depot)의 시간을 기준으로 커서 초기화 (00:00 버그 방지)
+        start_min = visited_nodes[0].get('arrival_min', 0)
+        cursor_dt = timeline_base_dt + timedelta(minutes=start_min)
+        
+        ICONS = {0: "🟢", 1: "🟡", 2: "🔴"} # 혼잡도 아이콘
+        LVL_TXT = {0: "원활", 1: "서행", 2: "정체"} # 교통 상태 텍스트
 
         for i in range(1, len(visited_nodes)):
             prev, node = visited_nodes[i-1], visited_nodes[i]
-            transit_info = []
-            current_leg_travel_time = 0 
+            transit_info, cur_travel_m, dest_traffic_lvl = [], 0, 0
+            
+            # [1] 도착 시간 설정 (자정 + 솔버가 계산한 절대 분)
+            arrival_dt = timeline_base_dt + timedelta(minutes=node.get('arrival_min', start_min))
 
-            # [1] 도착 시간 설정
-            if 'arrival_min' in node:
-                arrival_dt = timeline_base_dt + timedelta(minutes=node['arrival_min'])
-            else:
-                arrival_dt = cursor_dt 
-
-            # [2] 이동 경로 계산
-            if i == 1:
-                # 첫 번째 장소는 경로 계산 생략 (transit_info는 아래에서 최종적으로 비움)
-                pass 
-            else:
+            # [2] 이동 경로 및 실시간 교통 지연 계산
+            if i > 1: # 두 번째 장소부터 이동 안내 표시
                 dest_traffic_lvl = self._get_traffic_level(node.get('lat'), node.get('lng'), arrival_dt)
+                path_opts = path_map.get((prev['id'], node['id']))
                 
-                path_options = path_map.get((prev['id'], node['id']))
-                if path_options:
-                    chosen_path = path_options.get('fastest' if transport_mode == "car" else path_type, [])
-                    
-                    for segment in chosen_path:
-                        seg_mins = sum(int(m) for m in re.findall(r'(\d+)분', segment))
+                if path_opts:
+                    chosen = path_opts.get('fastest' if transport_mode == "car" else path_type, [])
+                    for seg in chosen:
+                        s_min = sum(int(m) for m in re.findall(r'(\d+)분', seg))
+                        added, tag = 0, ""
                         
-                        total_added_min = 0 
-                        status_tag = ""
-                        
-                        # (A) 대기 시간 지연
-                        if "대기" in segment:
-                            origin_traffic_lvl = self._get_traffic_level(prev.get('lat'), prev.get('lng'), cursor_dt)
-                            if origin_traffic_lvl > 0:
-                                weight = self._get_wait_weight(origin_traffic_lvl)
-                                final_mins = math.ceil(seg_mins * weight)
-                                added_min = final_mins - seg_mins
-                                total_added_min += added_min
-                                
-                                icon = ICONS.get(origin_traffic_lvl, "")
-                                if added_min > 0:
-                                    status_tag = f" [{icon}혼잡 (+{added_min}분)]"
-                                else:
-                                    status_tag = f" [{icon}혼잡]"
+                        if "대기" in seg: # 대중교통 대기 지연
+                            origin_lvl = self._get_traffic_level(prev.get('lat'), prev.get('lng'), cursor_dt)
+                            added = math.ceil(s_min * self._get_wait_weight(origin_lvl)) - s_min
+                            tag = f" [{ICONS.get(origin_lvl)}혼잡 (+{added}분)]" if added > 0 else f" [{ICONS.get(origin_lvl)}혼잡]"
+                        elif any(m in seg for m in ["승용차", "버스"]): # 도로 주행 지연
+                            added = math.ceil(s_min * self._get_travel_time_weight(dest_traffic_lvl, "car" if "승용차" in seg else "bus")) - s_min
+                            if transport_mode == "car": added += 12 # 자동차 주차 시간 고정 가산
+                            t_txt = LVL_TXT.get(dest_traffic_lvl, "서행")
+                            tag = f" [{ICONS.get(dest_traffic_lvl)}{t_txt} (+{added}분)]" if added > 0 else f" [{ICONS.get(dest_traffic_lvl)}{t_txt}]"
+                            if transport_mode == "car": tag += " [주차/도보 +12분]"
 
-                        # (B) 이동 시간 지연 (도로 혼잡 + 주차)
-                        elif "승용차" in segment or "버스" in segment:
-                            traffic_added_min = 0 
-                            parking_time = 0      
-                            
-                            # 1. 교통 정체 계산
-                            if dest_traffic_lvl > 0:
-                                mode_key = "car" if "승용차" in segment else "bus"
-                                weight = self._get_travel_time_weight(dest_traffic_lvl, mode_key)
-                                final_mins = math.ceil(seg_mins * weight)
-                                traffic_added_min = final_mins - seg_mins
-                                
-                                t_txt = {1: "서행", 2: "정체"}.get(dest_traffic_lvl, "")
-                                icon = ICONS.get(dest_traffic_lvl, "")
-                                
-                                if traffic_added_min > 0:
-                                    status_tag = f" [{icon}{t_txt} (+{traffic_added_min}분)]"
-                                else:
-                                    status_tag = f" [{icon}{t_txt}]"
-
-                            # 2. 주차 시간 계산 (자동차 모드일 때만)
-                            if transport_mode == "car":
-                                parking_time = 12
-                                status_tag += f" [주차/도보 +{parking_time}분]"
-                            
-                            total_added_min = traffic_added_min + parking_time
-
-                        # (C) 최종 텍스트 업데이트
-                        real_mins = seg_mins + total_added_min
-                        current_leg_travel_time += real_mins
-                        
-                        segment = re.sub(r'\d+분', f'{real_mins}분', segment)
-                        transit_info.append(segment + status_tag)
-                else:
-                    # Fallback
-                    est_min = self._travel_minutes(prev, node, transport_mode)
-                    current_leg_travel_time += est_min
-                    if transport_mode == "car":
-                        msg = f"승용차 이동 : {est_min}분 (주차포함)"
-                    else:
-                        msg = f"도보/대중교통 이동 : {est_min}분 (경로 정보 없음)"
-                    transit_info.append(msg)
+                        real_m = s_min + added
+                        cur_travel_m += real_m
+                        transit_info.append(re.sub(r'\d+분', f'{real_m}분', seg) + tag)
+                else: # 경로 정보 없을 시 직선거리 기반 추정
+                    cur_travel_m = self._travel_minutes(prev, node, transport_mode)
+                    transit_info.append(f"이동 : {cur_travel_m}분 (정보없음)")
                 
-                arrival_dt = cursor_dt + timedelta(minutes=current_leg_travel_time)
+                arrival_dt = cursor_dt + timedelta(minutes=cur_travel_m)
 
-            # [3] 도착 시간 보정 (Smart Departure Logic)
-            target_start_dt = None
+            # [3] 스마트 도착 보정 (식사/고정 일정 대기 로직)
+            target_dt = None
             if node["type"] in ["lunch", "dinner"]:
-                t_win = LUNCH_WINDOW if node["type"] == "lunch" else DINNER_WINDOW
-                target_start_dt = datetime.strptime(f"{target_date_str} {t_win[0]}", "%Y-%m-%d %H:%M")
+                win = LUNCH_WINDOW if node["type"] == "lunch" else DINNER_WINDOW
+                target_dt = datetime.strptime(f"{target_date_str} {win[0]}", "%Y-%m-%d %H:%M")
             elif node["type"] == "fixed":
-                try:
-                    start_time_str = node["orig_time_str"].split(" - ")[0]
-                    target_start_dt = datetime.strptime(f"{target_date_str} {start_time_str}", "%Y-%m-%d %H:%M")
+                try: target_dt = datetime.strptime(f"{target_date_str} {node['orig_time_str'].split(' - ')[0]}", "%Y-%m-%d %H:%M")
                 except: pass
 
-            wait_min = 0
-            free_time_before_travel = 0
+            wait_m, slack_m = 0, 0
+            if target_dt and arrival_dt < target_dt:
+                diff = int((target_dt - arrival_dt).total_seconds() / 60)
+                if diff > 10: # 여유가 많으면 출발 자체를 늦춤
+                    slack_m, wait_m = diff - 10, 10
+                    cursor_dt += timedelta(minutes=slack_m)
+                    arrival_dt = target_dt - timedelta(minutes=10)
+                else:
+                    wait_m = diff
+
+            if slack_m > 0: transit_info.insert(0, f"출발 전 여유 : {slack_m}분")
+            if wait_m > 0: transit_info.append(f"현장 대기 : {wait_m}분")
+            arrival_dt += timedelta(minutes=wait_m)
+
+            # [4] 체류 시간 및 라벨링 (selected 타입 강조)
+            pop_lvl = self._get_population_level(node.get('lat'), node.get('lng'), arrival_dt)
+            pop_txt = {0: "여유", 1: "보통", 2: "혼잡"}.get(pop_lvl, "정보없음")
+            icon = ICONS.get(pop_lvl, "")
             
-            if target_start_dt:
-                if arrival_dt < target_start_dt:
-                    total_slack = int((target_start_dt - arrival_dt).total_seconds() / 60)
-                    safety_margin = 10 
-                    
-                    if total_slack > safety_margin:
-                        free_time_before_travel = total_slack - safety_margin
-                        wait_min = safety_margin
-                        cursor_dt += timedelta(minutes=free_time_before_travel)
-                        arrival_dt = target_start_dt - timedelta(minutes=safety_margin)
-                    else:
-                        wait_min = total_slack
-
-            if free_time_before_travel > 0:
-                transit_info.insert(0, f"출발 전 여유 : {free_time_before_travel}분")
-            
-            if wait_min > 0:
-                transit_info.append(f"현장 대기 : {wait_min}분")
-                arrival_dt += timedelta(minutes=wait_min)
-
-            if i == 1:
-                transit_info = []
-
-            # [4] 체류 시간 및 라벨링
-            final_stay = node["stay"]
-            pop_label = "정보없음"
-            time_congestion_info = ""
-            traffic_label = "-"
-
-            if node["type"] not in ["fixed", "depot"]:
-                pop_lvl = self._get_population_level(node.get('lat'), node.get('lng'), arrival_dt)
-                weighted_stay = math.ceil(node["stay"] * self._get_stay_weight(pop_lvl))
-                add_stay = weighted_stay - node["stay"]
-                final_stay = weighted_stay
+            if node["type"] in ["spot", "selected", "lunch", "dinner", "gap_filler"]:
+                w_stay = math.ceil(node["stay"] * self._get_stay_weight(pop_lvl))
+                add_s, final_stay = w_stay - node["stay"], w_stay
                 
-                pop_txt = {0: "여유", 1: "보통", 2: "혼잡"}.get(pop_lvl, "정보없음")
-                icon = ICONS.get(pop_lvl, "")
-                pop_label = f"인구 {pop_txt}{icon}"
-                
-                if add_stay > 0:
-                    time_congestion_info = f" [{icon}{pop_txt} (+{add_stay}분)]"
-                
-                if i > 1 and 'dest_traffic_lvl' in locals():
-                    t_txt = {0: "원활", 1: "서행", 2: "정체"}.get(dest_traffic_lvl, "정보없음")
-                    t_icon = ICONS.get(dest_traffic_lvl, "")
-                    traffic_label = f"교통 {t_txt}{t_icon}"
-            
-            elif node["type"] == "fixed":
-                pop_label = "고정일정"
-                if i > 1 and 'dest_traffic_lvl' in locals():
-                    t_txt = {0: "원활", 1: "서행", 2: "정체"}.get(dest_traffic_lvl, "정보없음")
-                    t_icon = ICONS.get(dest_traffic_lvl, "")
-                    traffic_label = f"교통 {t_txt}{t_icon}"
+                prefix = "직접선택 | " if node["type"] == "selected" else "" # 직접 선택 장소 표시
+                pop_label = f"{prefix}인구 {pop_txt}{icon}"
+                cong_info = f" [{icon}{pop_txt} (+{add_s}분)]" if add_s > 0 else ""
+            else: # 고정 일정
+                final_stay, pop_label, cong_info = node["stay"], "고정일정", ""
 
-            # [5] 최종 타임라인 문자열
+            # [5] 최종 시각 문자열 및 결과 조립
             if node["type"] == "fixed":
-                t_parts = node.get("orig_time_str").split(" - ")
-                cursor_dt = datetime.strptime(f"{target_date_str} {t_parts[1]}", "%Y-%m-%d %H:%M")
-                time_str = node.get("orig_time_str")
+                time_str = node["orig_time_str"]
+                cursor_dt = datetime.strptime(f"{target_date_str} {node['orig_time_str'].split(' - ')[1]}", "%Y-%m-%d %H:%M")
             else:
                 end_dt = arrival_dt + timedelta(minutes=final_stay)
-                time_str = f"{arrival_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}{time_congestion_info}"
-                cursor_dt = end_dt
+                time_str, cursor_dt = f"{arrival_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}{cong_info}", end_dt
 
             timeline.append({
                 "name": node['name'],
                 "category": node["category"],
                 "category2": node.get("category2", ""),
                 "time": time_str,
-                "transit_to_here": transit_info, # i==1 이면 빈 리스트가 들어감
+                "transit_to_here": [] if i == 1 else transit_info,
                 "population_level": pop_label,
-                "traffic_level": traffic_label
+                "traffic_level": f"교통 {LVL_TXT.get(dest_traffic_lvl, '원활')}{ICONS.get(dest_traffic_lvl, '')}" if i > 1 else "-"
             })
             
         return timeline
     
     # ========== 최적화 ==========
 
-    def _optimize_day(self, places, restaurants, fixed_events, start_time_str, target_date_str, end_time_str=None, transport_mode="transport"):
+    def _optimize_day(self, places, restaurants, fixed_events, start_time_str, target_date_str, end_time_str=None, transport_mode="transport", selected_places=None):
 
         # 1. 날짜 및 시간 설정 (분 단위 변환)
         base_date = datetime.strptime(target_date_str, "%Y-%m-%d")
@@ -949,7 +885,7 @@ class RouteOptimizerService:
 
         # 2. 노드 리스트 생성 (관광지, 식당, 고정일정)
         # nodes[0]은 "시작점"이지만, 로직에 의해 '가상의 노드'로 처리됩니다.
-        nodes = self._build_nodes(places, restaurants, fixed_events, day_start_dt)
+        nodes = self._build_nodes(places, restaurants, fixed_events, day_start_dt, selected_places)
         for idx, node in enumerate(nodes): node["id"] = int(idx)
         n = len(nodes)
 
@@ -1260,7 +1196,12 @@ class RouteOptimizerService:
         cols = ["name", "category", "category2", "lat", "lng", "address"]
         center = SEOUL_GU_COORDS.get(request.region, {"lat": 37.57, "lng": 126.98})
 
-        if request.fixed_events:
+        if hasattr(request, 'selected_places') and request.selected_places:
+            sp = request.selected_places[0]
+            center = {"lat": float(sp['lat']), "lng": float(sp['lng'])}
+            print(f"중심점 변경: 선택 장소 기준 ({center['lat']}, {center['lng']})")
+
+        elif request.fixed_events:
             for event in request.fixed_events:
                 if isinstance(event, dict):
                     e_lat = event.get('lat')
@@ -1344,15 +1285,18 @@ class RouteOptimizerService:
                 for item in day_plan['accommodations']:
                     item['addr'] = name_to_addr.get(item['name'], "")
 
-        # 4. 병렬 최적화
+        # 4. 최적화
         start_opt = time.time()
         print(f"병렬 최적화 시작 ({total_days}일, Mode: {request.transport_mode})")
         
-        tasks = []
+        final_result = {k: plan['plans'][k] for k in plan['plans']}
         curr = start_dt
         day_keys = list(plan['plans'].keys())
+
+        global_visited_selected = set()
         
         for i, day_key in enumerate(day_keys):
+            # 시간 설정
             if i == 0: day_start_time = request.first_day_start_time 
             else: day_start_time = "10:00"
 
@@ -1360,8 +1304,9 @@ class RouteOptimizerService:
             else: day_end_time = "21:00"
 
             current_date_str = curr.strftime("%Y-%m-%d")
-            daily_fixed_events = []
 
+            # 고정 일정 필터링
+            daily_fixed_events = []
             if request.fixed_events:
                 for e in request.fixed_events:
                     e_date = e.get('date') if isinstance(e, dict) else getattr(e, 'date', None)
@@ -1379,47 +1324,54 @@ class RouteOptimizerService:
                         event_dict['addr'] = event_dict.get('address') or event_dict.get('addr', "")
                         daily_fixed_events.append(event_dict)
 
-            tasks.append((day_key, current_date_str, day_start_time, day_end_time, daily_fixed_events))
-            curr += timedelta(days=1)
+            # [핵심] 선택된 장소 중 아직 방문하지 않은 장소만 필터링
+            available_selected = []
+            if request.selected_places:
+                available_selected = [
+                    sp for sp in request.selected_places 
+                    if sp['name'] not in global_visited_selected
+                ]
+
+            timelines, updated_nodes = self._optimize_day(
+                places=plan['plans'][day_key]['route'], 
+                restaurants=plan['plans'][day_key]['restaurants'], 
+                fixed_events=daily_fixed_events,             
+                start_time_str=day_start_time,           
+                target_date_str=current_date_str,          
+                end_time_str=day_end_time,             
+                transport_mode=request.transport_mode,
+                selected_places=available_selected # 필터링된 목록 전달
+            )
+
+            # 실제로 방문 성공한 'selected' 장소를 전역 방문 셋에 추가
+            for node in updated_nodes:
+                if node.get('type') == 'selected':
+                    global_visited_selected.add(node['name'])
+                    print(f"[방문 확정] {node['name']} (다음 날부터 제외)")
             
-        with ThreadPoolExecutor(min(total_days, 4)) as ex:
-            results = list(ex.map(lambda task: (task[0], self._optimize_day(
-                places=plan['plans'][task[0]]['route'], 
-                restaurants=plan['plans'][task[0]]['restaurants'], 
-                fixed_events=task[4],             
-                start_time_str=task[2],           
-                target_date_str=task[1],          
-                end_time_str=task[3],             
-                transport_mode=request.transport_mode
-            )), tasks))
-            
-        final_result = {k: plan['plans'][k] for k in plan['plans']}
+            # 결과 저장
+            final_result[day_key]['timelines'] = timelines
         
-        for key, (timelines, updated_nodes) in results:
-            final_result[key]['timelines'] = timelines
-            
             clean_route_list = []
             for node in updated_nodes:
                 if node['type'] == 'depot': continue
-                
-                clean_node = {
+                clean_route_list.append({
                     "name": node['name'],
                     "category": node['category'],
                     "category2": node.get('category2', ""),
-                    "lat": node['lat'],
-                    "lng": node['lng'],
+                    "lat": node['lat'], "lng": node['lng'],
                     "addr": node.get("addr", "") 
-                }
-                clean_route_list.append(clean_node)
+                })
+            final_result[day_key]['route'] = clean_route_list
             
-            final_result[key]['route'] = clean_route_list
+            curr += timedelta(days=1)
 
-        print(f"병렬 최적화 완료 : {round(time.time() - start_opt, 2)}초")
+        print(f"최적화 완료 : {round(time.time() - start_opt, 2)}초")
         total_end_time = time.time()
         print(f"[Total] 전체 프로세스 완료: {total_end_time - total_start_time:.2f}초")
 
         with open(RESULT_FINAL_PATH, "w", encoding="utf-8") as f:
-                json.dump(final_result, f, ensure_ascii=False, indent=2)
+            json.dump(final_result, f, ensure_ascii=False, indent=2)
 
         return final_result
     

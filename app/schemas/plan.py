@@ -20,6 +20,7 @@ class PlanGenerateRequest(BaseModel):
     categories: List[str] = []
     purposes: List[str] = []
     # 'transport' (대중교통+도보) 또는 'car' (승용차) 중 선택
+    selected_places: List[dict] = []
     transport_mode: str = "transport"
     fixed_events: Optional[List[FixedEvent]] = []
 
