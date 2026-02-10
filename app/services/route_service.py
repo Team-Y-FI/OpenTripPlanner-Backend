@@ -1,11 +1,9 @@
-import os, pickle, re, time, math, json, zipfile, joblib, copy, random
+import os, pickle, re, time, math, json, zipfile, joblib, copy
 import multiprocessing
 import pandas as pd
 import geopandas as gpd
 from datetime import datetime, timedelta
-from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
-from r5py import TransportNetwork, TravelTimeMatrix, DetailedItineraries, TransportMode
 from google import genai
 
 from app.schemas.plan import PlanGenerateRequest
@@ -13,10 +11,17 @@ from app.schemas.plan import PlanGenerateRequest
 # ============================================================
 # 1. 환경 설정 및 상수
 # ============================================================
-available_cores = multiprocessing.cpu_count()
-JAVA_PARALLELISM = max(2, available_cores // 2)
+available_cores = multiprocessing.cpu_count() * 0.8
+TARGET_THREADS = available_cores
+os.environ["R5PY_NUM_THREADS"] = str(TARGET_THREADS)
 os.environ["JAVA_HOME"] = r"C:\Program Files\Java\jdk-21.0.10"
-os.environ["JAVA_OPTS"] = f"-Xmx8G -Djava.util.concurrent.ForkJoinPool.common.parallelism={JAVA_PARALLELISM}"
+os.environ["JAVA_OPTS"] = (
+    f"-Xmx12G " # 메모리 여유가 있다면 12G로 증설 추천
+    f"-XX:+UseG1GC " # 가비지 컬렉션 최적화 (성능 안정성)
+    f"-Djava.util.concurrent.ForkJoinPool.common.parallelism={TARGET_THREADS}"
+)
+
+from r5py import TransportNetwork, TravelTimeMatrix, DetailedItineraries, TransportMode
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -60,7 +65,7 @@ SEOUL_GU_COORDS = {
 
 FALLBACK_MOVE_MIN = 30
 MAX_TRANSFERS = 2
-MAX_TRAVEL_TIME_MIN = 90
+MAX_TRAVEL_TIME_MIN = 60
 LUNCH_WINDOW = ("11:00", "14:00")
 DINNER_WINDOW = ("17:00", "20:00")
 
