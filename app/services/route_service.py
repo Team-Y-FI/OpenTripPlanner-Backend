@@ -1291,7 +1291,7 @@ class RouteOptimizerService:
 
         # 4. 최적화
         start_opt = time.time()
-        print(f"병렬 최적화 시작 ({total_days}일, Mode: {request.transport_mode})")
+        print(f"최적화 시작 ({total_days}일, Mode: {request.transport_mode})")
         
         final_result = {k: plan['plans'][k] for k in plan['plans']}
         curr = start_dt
