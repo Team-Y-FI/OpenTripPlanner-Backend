@@ -2,36 +2,12 @@
   "day1": {
     "route": [
       {
-        "name": "광화문광장",
-        "category": "관광지",
-        "category2": "도시공원",
-        "lat": 37.5727035021,
-        "lng": 126.9769709861,
-        "addr": "서울특별시 종로구 세종대로 172"
-      },
-      {
-        "name": "세종대왕 동상",
-        "category": "관광지",
-        "category2": "랜드마크관광",
-        "lat": 37.5729534722,
-        "lng": 126.9769154284,
-        "addr": "서울특별시 종로구 세종로1-68"
-      },
-      {
-        "name": "조금",
+        "name": "채식요리전문점 오세계향",
         "category": "음식점",
-        "category2": "한식",
-        "lat": 37.5753310942,
-        "lng": 126.9836425255,
-        "addr": "서울특별시 종로구 인사동길 60 (관훈동)크라운빌딩 1층"
-      },
-      {
-        "name": "서울 우정총국",
-        "category": "관광지",
-        "category2": "역사유적지",
-        "lat": 37.5744228499,
-        "lng": 126.9827287456,
-        "addr": "서울특별시 종로구 우정국로 59 (견지동)"
+        "category2": "외국식",
+        "lat": 37.5746700892,
+        "lng": 126.9852590637,
+        "addr": "서울특별시 종로구 인사동12길 14-5"
       },
       {
         "name": "쌈지길",
@@ -42,12 +18,20 @@
         "addr": "서울특별시 종로구 인사동길 44 (관훈동)"
       },
       {
-        "name": "채식요리전문점 오세계향",
+        "name": "서울 우정총국",
+        "category": "관광지",
+        "category2": "역사유적지",
+        "lat": 37.5744228499,
+        "lng": 126.9827287456,
+        "addr": "서울특별시 종로구 우정국로 59 (견지동)"
+      },
+      {
+        "name": "조금",
         "category": "음식점",
-        "category2": "외국식",
-        "lat": 37.5746700892,
-        "lng": 126.9852590637,
-        "addr": "서울특별시 종로구 인사동12길 14-5"
+        "category2": "한식",
+        "lat": 37.5753310942,
+        "lng": 126.9836425255,
+        "addr": "서울특별시 종로구 인사동길 60 (관훈동)크라운빌딩 1층"
       }
     ],
     "restaurants": [
@@ -97,35 +81,21 @@
     "timelines": {
       "fastest_version": [
         {
-          "name": "광화문광장",
-          "category": "관광지",
-          "category2": "도시공원",
-          "time": "09:00 - 10:30",
+          "name": "채식요리전문점 오세계향",
+          "category": "음식점",
+          "category2": "외국식",
+          "time": "12:35 - 13:45",
           "transit_to_here": [],
           "population_level": "인구 여유🟢",
           "traffic_level": "-"
         },
         {
-          "name": "세종대왕 동상",
+          "name": "쌈지길",
           "category": "관광지",
-          "category2": "랜드마크관광",
-          "time": "10:32 - 12:02",
+          "category2": "도시/지역문화관광",
+          "time": "13:47 - 15:17",
           "transit_to_here": [
             "도보 : 2분"
-          ],
-          "population_level": "인구 여유🟢",
-          "traffic_level": "교통 서행🟡"
-        },
-        {
-          "name": "조금",
-          "category": "음식점",
-          "category2": "한식",
-          "time": "12:21 - 13:31",
-          "transit_to_here": [
-            "도보 : 8분",
-            "대기 : 5분 [🟡혼잡 (+2분)]",
-            "[버스][109, 171, 272, 710, N51] : 경복궁 → 안국역.인사동 : 3분 [🟡서행 (+1분)]",
-            "도보 : 3분"
           ],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 서행🟡"
@@ -134,18 +104,7 @@
           "name": "서울 우정총국",
           "category": "관광지",
           "category2": "역사유적지",
-          "time": "13:35 - 15:05",
-          "transit_to_here": [
-            "도보 : 4분"
-          ],
-          "population_level": "인구 여유🟢",
-          "traffic_level": "교통 서행🟡"
-        },
-        {
-          "name": "쌈지길",
-          "category": "관광지",
-          "category2": "도시/지역문화관광",
-          "time": "15:10 - 16:40",
+          "time": "15:22 - 16:52",
           "transit_to_here": [
             "도보 : 5분"
           ],
@@ -153,14 +112,13 @@
           "traffic_level": "교통 서행🟡"
         },
         {
-          "name": "채식요리전문점 오세계향",
+          "name": "조금",
           "category": "음식점",
-          "category2": "외국식",
+          "category2": "한식",
           "time": "17:00 - 18:10",
           "transit_to_here": [
-            "출발 전 여유 : 8분",
-            "도보 : 2분",
-            "현장 대기 : 10분"
+            "도보 : 4분",
+            "현장 대기 : 4분"
           ],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 서행🟡"
@@ -168,32 +126,21 @@
       ],
       "min_transfer_version": [
         {
-          "name": "광화문광장",
-          "category": "관광지",
-          "category2": "도시공원",
-          "time": "09:00 - 10:30",
+          "name": "채식요리전문점 오세계향",
+          "category": "음식점",
+          "category2": "외국식",
+          "time": "12:35 - 13:45",
           "transit_to_here": [],
           "population_level": "인구 여유🟢",
           "traffic_level": "-"
         },
         {
-          "name": "세종대왕 동상",
+          "name": "쌈지길",
           "category": "관광지",
-          "category2": "랜드마크관광",
-          "time": "10:32 - 12:02",
+          "category2": "도시/지역문화관광",
+          "time": "13:47 - 15:17",
           "transit_to_here": [
             "도보 : 2분"
-          ],
-          "population_level": "인구 여유🟢",
-          "traffic_level": "교통 서행🟡"
-        },
-        {
-          "name": "조금",
-          "category": "음식점",
-          "category2": "한식",
-          "time": "12:18 - 13:28",
-          "transit_to_here": [
-            "도보 : 16분"
           ],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 서행🟡"
@@ -202,18 +149,7 @@
           "name": "서울 우정총국",
           "category": "관광지",
           "category2": "역사유적지",
-          "time": "13:32 - 15:02",
-          "transit_to_here": [
-            "도보 : 4분"
-          ],
-          "population_level": "인구 여유🟢",
-          "traffic_level": "교통 서행🟡"
-        },
-        {
-          "name": "쌈지길",
-          "category": "관광지",
-          "category2": "도시/지역문화관광",
-          "time": "15:07 - 16:37",
+          "time": "15:22 - 16:52",
           "transit_to_here": [
             "도보 : 5분"
           ],
@@ -221,14 +157,13 @@
           "traffic_level": "교통 서행🟡"
         },
         {
-          "name": "채식요리전문점 오세계향",
+          "name": "조금",
           "category": "음식점",
-          "category2": "외국식",
+          "category2": "한식",
           "time": "17:00 - 18:10",
           "transit_to_here": [
-            "출발 전 여유 : 11분",
-            "도보 : 2분",
-            "현장 대기 : 10분"
+            "도보 : 4분",
+            "현장 대기 : 4분"
           ],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 서행🟡"
@@ -238,22 +173,6 @@
   },
   "day2": {
     "route": [
-      {
-        "name": "코끼리베이글",
-        "category": "카페",
-        "category2": "카페",
-        "lat": 37.5293098155,
-        "lng": 126.8927437773,
-        "addr": "서울특별시 영등포구 선유로 176 (양평동3가)"
-      },
-      {
-        "name": "크레이지카츠",
-        "category": "음식점",
-        "category2": "외국식",
-        "lat": 37.5505048774,
-        "lng": 126.9097249652,
-        "addr": "서울특별시 마포구 포은로2나길 44 (합정동)"
-      },
       {
         "name": "어반플랜트 합정",
         "category": "카페",
@@ -309,7 +228,7 @@
     "timelines": {
       "fastest_version": [
         {
-          "name": "코끼리베이글",
+          "name": "어반플랜트 합정",
           "category": "카페",
           "category2": "카페",
           "time": "10:00 - 11:10 [🔴혼잡 (+20분)]",
@@ -318,35 +237,10 @@
           "traffic_level": "-"
         },
         {
-          "name": "크레이지카츠",
-          "category": "음식점",
-          "category2": "외국식",
-          "time": "11:41 - 13:19 [🔴혼잡 (+28분)]",
-          "transit_to_here": [
-            "도보 : 5분",
-            "대기 : 12분 [🔴혼잡 (+6분)]",
-            "[버스][7612] : 선유중학교 → 합정역 : 6분 [🟡서행 (+2분)]",
-            "도보 : 8분"
-          ],
-          "population_level": "인구 혼잡🔴",
-          "traffic_level": "교통 서행🟡"
-        },
-        {
-          "name": "어반플랜트 합정",
-          "category": "카페",
-          "category2": "카페",
-          "time": "13:33 - 14:43 [🔴혼잡 (+20분)]",
-          "transit_to_here": [
-            "도보 : 14분"
-          ],
-          "population_level": "인구 혼잡🔴",
-          "traffic_level": "교통 서행🟡"
-        },
-        {
           "name": "빈브라더스 합정",
           "category": "카페",
           "category2": "카페",
-          "time": "14:50 - 16:00 [🔴혼잡 (+20분)]",
+          "time": "11:17 - 12:27 [🔴혼잡 (+20분)]",
           "transit_to_here": [
             "도보 : 7분"
           ],
@@ -356,7 +250,7 @@
       ],
       "min_transfer_version": [
         {
-          "name": "코끼리베이글",
+          "name": "어반플랜트 합정",
           "category": "카페",
           "category2": "카페",
           "time": "10:00 - 11:10 [🔴혼잡 (+20분)]",
@@ -365,35 +259,10 @@
           "traffic_level": "-"
         },
         {
-          "name": "크레이지카츠",
-          "category": "음식점",
-          "category2": "외국식",
-          "time": "11:41 - 13:19 [🔴혼잡 (+28분)]",
-          "transit_to_here": [
-            "도보 : 5분",
-            "대기 : 12분 [🔴혼잡 (+6분)]",
-            "[버스][7612] : 선유중학교 → 합정역 : 6분 [🟡서행 (+2분)]",
-            "도보 : 8분"
-          ],
-          "population_level": "인구 혼잡🔴",
-          "traffic_level": "교통 서행🟡"
-        },
-        {
-          "name": "어반플랜트 합정",
-          "category": "카페",
-          "category2": "카페",
-          "time": "13:33 - 14:43 [🔴혼잡 (+20분)]",
-          "transit_to_here": [
-            "도보 : 14분"
-          ],
-          "population_level": "인구 혼잡🔴",
-          "traffic_level": "교통 서행🟡"
-        },
-        {
           "name": "빈브라더스 합정",
           "category": "카페",
           "category2": "카페",
-          "time": "14:50 - 16:00 [🔴혼잡 (+20분)]",
+          "time": "11:17 - 12:27 [🔴혼잡 (+20분)]",
           "transit_to_here": [
             "도보 : 7분"
           ],
