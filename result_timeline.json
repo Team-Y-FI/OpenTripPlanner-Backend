@@ -132,9 +132,7 @@
           "category": "음식점",
           "category2": "외국식",
           "time": "12:40 - 13:50",
-          "transit_to_here": [
-            "도보 : 3분"
-          ],
+          "transit_to_here": ["도보 : 3분"],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 정체🔴"
         },
@@ -157,9 +155,7 @@
           "category": "관광지",
           "category2": "도시공원",
           "time": "16:24 - 18:12 [🟡보통 (+18분)]",
-          "transit_to_here": [
-            "도보 : 7분"
-          ],
+          "transit_to_here": ["도보 : 7분"],
           "population_level": "인구 보통🟡",
           "traffic_level": "교통 정체🔴"
         },
@@ -182,9 +178,7 @@
           "category": "카페",
           "category2": "카페",
           "time": "20:04 - 20:54",
-          "transit_to_here": [
-            "도보 : 6분"
-          ],
+          "transit_to_here": ["도보 : 6분"],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 정체🔴"
         }
@@ -218,9 +212,7 @@
           "category": "음식점",
           "category2": "외국식",
           "time": "12:40 - 13:50",
-          "transit_to_here": [
-            "도보 : 3분"
-          ],
+          "transit_to_here": ["도보 : 3분"],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 정체🔴"
         },
@@ -243,9 +235,7 @@
           "category": "관광지",
           "category2": "도시공원",
           "time": "16:24 - 18:12 [🟡보통 (+18분)]",
-          "transit_to_here": [
-            "도보 : 7분"
-          ],
+          "transit_to_here": ["도보 : 7분"],
           "population_level": "인구 보통🟡",
           "traffic_level": "교통 정체🔴"
         },
@@ -268,9 +258,7 @@
           "category": "카페",
           "category2": "카페",
           "time": "20:04 - 20:54",
-          "transit_to_here": [
-            "도보 : 6분"
-          ],
+          "transit_to_here": ["도보 : 6분"],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 정체🔴"
         }
@@ -379,9 +367,7 @@
           "category": "음식점",
           "category2": "한식",
           "time": "11:04 - 12:28 [🟡보통 (+14분)]",
-          "transit_to_here": [
-            "도보 : 14분"
-          ],
+          "transit_to_here": ["도보 : 14분"],
           "population_level": "인구 보통🟡",
           "traffic_level": "교통 정체🔴"
         },
@@ -436,9 +422,7 @@
           "category": "음식점",
           "category2": "외국식",
           "time": "17:57 - 19:21 [🟡보통 (+14분)]",
-          "transit_to_here": [
-            "도보 : 2분"
-          ],
+          "transit_to_here": ["도보 : 2분"],
           "population_level": "인구 보통🟡",
           "traffic_level": "교통 정체🔴"
         }
@@ -458,9 +442,7 @@
           "category": "음식점",
           "category2": "한식",
           "time": "11:04 - 12:28 [🟡보통 (+14분)]",
-          "transit_to_here": [
-            "도보 : 14분"
-          ],
+          "transit_to_here": ["도보 : 14분"],
           "population_level": "인구 보통🟡",
           "traffic_level": "교통 정체🔴"
         },
@@ -469,9 +451,7 @@
           "category": "카페",
           "category2": "카페",
           "time": "12:44 - 13:44 [🟡보통 (+10분)]",
-          "transit_to_here": [
-            "도보 : 16분"
-          ],
+          "transit_to_here": ["도보 : 16분"],
           "population_level": "인구 보통🟡",
           "traffic_level": "교통 정체🔴"
         },
@@ -508,9 +488,7 @@
           "category": "음식점",
           "category2": "외국식",
           "time": "17:47 - 19:11 [🟡보통 (+14분)]",
-          "transit_to_here": [
-            "도보 : 2분"
-          ],
+          "transit_to_here": ["도보 : 2분"],
           "population_level": "인구 보통🟡",
           "traffic_level": "교통 정체🔴"
         }

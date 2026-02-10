@@ -186,6 +186,12 @@ class PlanService:
         
         return saved_plan, plan
 
+    async def delete_saved_plan(self, user_id: str, saved_plan_id: str):
+        """저장된 플랜 삭제"""
+        deleted = await self.repo.delete_saved_plan(user_id, saved_plan_id)
+        if not deleted:
+            raise AppError("saved_plan_not_found", f"Saved plan not found: {saved_plan_id}", 404)
+
     async def list_saved_plans_by_spot(self, user_id: str, spot_id: str, limit: int = 20):
         """특정 장소와 연결된 저장된 플랜 목록 조회"""
         return await self.repo.list_saved_plans_by_spot(user_id, spot_id, limit=limit)
