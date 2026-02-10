@@ -27,7 +27,19 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     CORS_ORIGINS: str = ""
 
+    STORAGE_BACKEND: str = "local"  # local | s3
     STORAGE_DIR: str = "./storage"
+    S3_BUCKET: str | None = None
+    S3_REGION: str | None = None
+    S3_ENDPOINT_URL: str | None = None
+    S3_ACCESS_KEY_ID: str | None = None
+    S3_SECRET_ACCESS_KEY: str | None = None
+    S3_SESSION_TOKEN: str | None = None
+    S3_KEY_PREFIX: str = "uploads"
+    S3_PUBLIC_BASE_URL: str | None = None
+    S3_USE_PRESIGNED_URL: bool = True
+    S3_PRESIGNED_URL_EXPIRES: int = 3600
+
     UPLOAD_MAX_PHOTOS: int = 20
     UPLOAD_MAX_FILE_SIZE_MB: int = 10
     UPLOAD_ALLOWED_EXTS: str = "jpg,jpeg,png,webp,heic,heif"

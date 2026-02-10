@@ -3,9 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import UploadFile
 from app.core.config import settings
 from app.repositories.upload_repo import UploadRepository
-from app.services.storage_service import LocalStorageService
+from app.services.storage_service import get_storage_service
 from app.services.geocoding_service import GeocodingService
-from app.utils.exif import extract_exif_lat_lng_taken_at
+from app.utils.exif import extract_exif_lat_lng_taken_at_bytes
 
 def _allowed_exts() -> set[str]:
     raw = settings.UPLOAD_ALLOWED_EXTS or ""
@@ -15,7 +15,7 @@ class UploadService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.repo = UploadRepository(db)
-        self.storage = LocalStorageService()
+        self.storage = get_storage_service()
 
     @staticmethod
     def limits() -> dict:
@@ -47,13 +47,12 @@ class UploadService:
         upload = await self.repo.create_upload(user_id=user_id)
 
         geo_svc = GeocodingService()
-        geo_enabled = bool(geo_svc.api_key)
+        geo_enabled = bool(geo_svc.kakao_rest_api_key or geo_svc.google_api_key)
 
         photos_out = []
         for f, content in prepared:
+            lat, lng, taken_at = extract_exif_lat_lng_taken_at_bytes(content)
             key = await self.storage.save_bytes(f.filename, content)
-            abs_path = os.path.join(self.storage_dir(), key)
-            lat, lng, taken_at = extract_exif_lat_lng_taken_at(abs_path)
 
             status = "recognized" if lat is not None and lng is not None else "needs_manual"
 
@@ -101,8 +100,3 @@ class UploadService:
 
         await self.repo.update_photo_place(photo_id, place_data)
         return await self.repo.get_photo(photo_id)
-
-    def storage_dir(self) -> str:
-        # keep a single source of truth
-        from app.core.config import settings
-        return settings.STORAGE_DIR

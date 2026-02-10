@@ -8,7 +8,7 @@ from app.schemas.saved_plan import SavePlanRequest
 from app.services.record_service import RecordService
 from app.services.plan_service import PlanService
 from app.repositories.upload_repo import UploadRepository
-from app.services.storage_service import LocalStorageService
+from app.services.storage_service import get_storage_service
 
 router = APIRouter()
 
@@ -35,7 +35,7 @@ async def list_spots(
     spots = await svc.list_spots(user.user_id, q=q, category=category, limit=limit)
 
     upload_repo = UploadRepository(db)
-    storage = LocalStorageService()
+    storage = get_storage_service()
     photos = await upload_repo.list_photos_by_ids([s.photo_id for s in spots if s.photo_id])
     photo_map = {p.photo_id: p for p in photos}
 
@@ -56,7 +56,7 @@ async def get_spot(spot_id: str, db: AsyncSession = Depends(get_db), user=Depend
     spot = await svc.get_spot(user.user_id, spot_id)
 
     upload_repo = UploadRepository(db)
-    storage = LocalStorageService()
+    storage = get_storage_service()
     photo = await upload_repo.get_photo(spot.photo_id) if spot.photo_id else None
 
     plan_svc = PlanService(db)

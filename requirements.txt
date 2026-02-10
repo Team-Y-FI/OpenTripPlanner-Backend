@@ -41,6 +41,7 @@ google-genai
 # Utilities
 python-dotenv
 exifread
+boto3>=1.34.0
 Pillow==10.4.0
 pillow-heif==0.20.0
 
