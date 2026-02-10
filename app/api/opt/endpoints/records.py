@@ -119,6 +119,12 @@ async def list_saved_plans(
 
     return {"items": out_items, "next_cursor": None}
 
+@router.delete("/plans/{saved_plan_id}")
+async def delete_saved_plan(saved_plan_id: str, db: AsyncSession = Depends(get_db), user=Depends(get_current_user)):
+    svc = PlanService(db)
+    await svc.delete_saved_plan(user.user_id, saved_plan_id)
+    return Response(status_code=204)
+
 @router.get("/plans/{saved_plan_id}")
 async def get_saved_plan(saved_plan_id: str, db: AsyncSession = Depends(get_db), user=Depends(get_current_user)):
     svc = PlanService(db)

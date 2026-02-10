@@ -43,6 +43,17 @@ class PlanRepository:
         self.db.add_all(links)
         await self.db.commit()
 
+    async def delete_saved_plan(self, user_id: str, saved_plan_id: str) -> bool:
+        res = await self.db.execute(
+            select(SavedPlan).where(SavedPlan.user_id == user_id, SavedPlan.saved_plan_id == saved_plan_id)
+        )
+        saved = res.scalar_one_or_none()
+        if not saved:
+            return False
+        await self.db.delete(saved)
+        await self.db.commit()
+        return True
+
     async def list_saved_plans_by_spot(self, user_id: str, spot_id: str, limit: int = 20):
         stmt = (
             select(SavedPlan)
