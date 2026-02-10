@@ -396,25 +396,25 @@ class RouteOptimizerService:
 
     def _get_wait_weight(self, level):
         """대기 시간 가중치"""
-        if level == 2: return 2.0
-        elif level == 1: return 1.5
+        if level == 2: return 1.5
+        elif level == 1: return 1.3
         else: return 1.0
 
     def _get_stay_weight(self, level):
         """체류 시간 가중치"""
-        if level == 2: return 1.4
-        elif level == 1: return 1.2
+        if level == 2: return 1.25
+        elif level == 1: return 1.1
         else: return 1.0
 
     def _get_travel_time_weight(self, level, mode="transport"):
         """이동 시간 가중치"""
         if mode == "car":
-            if level == 2: return 2.0
-            elif level == 1: return 1.7
-        elif mode == "bus":
             if level == 2: return 1.8
-            elif level == 1: return 1.5
-        return 1.2
+            elif level == 1: return 1.6
+        elif mode == "bus":
+            if level == 2: return 1.6
+            elif level == 1: return 1.4
+        return 1.1
 
     def _haversine(self, lat1, lng1, lat2, lng2):
         if lat1 is None or lat2 is None or lng1 is None or lng2 is None: return 0
@@ -536,7 +536,16 @@ class RouteOptimizerService:
         max_rides = MAX_TRANSFERS
 
         try:
-            computer = DetailedItineraries(self.transport_network, origins=ogdf, destinations=dgdf, departure=departure_time, transport_modes=modes, max_public_transport_rides=max_rides, max_time=timedelta(minutes=MAX_TRAVEL_TIME_MIN))
+            computer = DetailedItineraries(
+                self.transport_network,
+                origins=ogdf,
+                destinations=dgdf,
+                departure=departure_time,
+                transport_modes=modes,
+                max_public_transport_rides=max_rides,
+                max_time=timedelta(minutes=MAX_TRAVEL_TIME_MIN),
+                snap_to_network=3000
+            )
         except: return path_map
 
         if computer is None or computer.empty: return path_map
