@@ -7,6 +7,7 @@ from app.schemas.plan import PlanGenerateRequest, FixedEvent
 
 # DB 관련 임포트
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 from app.models.plan import Plan, SavedPlan
 from app.repositories.plan_repo import PlanRepository
 from typing import List, Optional
@@ -196,45 +197,76 @@ class PlanService:
         """특정 장소와 연결된 저장된 플랜 목록 조회"""
         return await self.repo.list_saved_plans_by_spot(user_id, spot_id, limit=limit)
 
-    async def recommend_alternative_spots(self, user_id: str, plan_id: str, day: str, spot_names: List[str], categories: Optional[List[str]] = None, region: Optional[str] = None):
-        """
-        대체 장소 추천
-        - plan_id로 Plan 조회하여 지역 정보 가져오기 (없으면 region 파라미터 사용)
-        - 제외할 장소들의 카테고리 추출
-        - route_service를 통해 대체 장소 추천
-        """
-        plan_region = region
+    async def recalculate_route(self, user_id: str, plan_id: str, day_key: str, remaining_places: list):
+        # 1. DB에서 기존 플랜 조회 (이동수단 등 원본 설정 확인용)
+        plan = await self.repo.get_plan(user_id, plan_id)
+        if not plan: raise AppError("plan_not_found", "플랜을 찾을 수 없습니다", 404)
+
+        variants = plan.variants_json or {}
+        summary = variants.get("summary", {})
+        transport_mode = summary.get("transport_mode", plan.transport)
         
-        # Plan 조회 시도 (plan_id가 "temp_no_db_id"인 경우는 조회 실패)
-        if plan_id and plan_id != "temp_no_db_id":
-            plan = await self.repo.get_plan(user_id, plan_id)
-            if plan:
-                plan_region = plan.region
-                
-                # variants_json에서 해당 날짜의 장소 정보 가져오기
-                variants = plan.variants_json or {}
-                day_data = variants.get(day)
-                
-                # 제외할 장소들의 카테고리 추출 (카테고리 미지정 시)
-                if not categories and day_data:
-                    route = day_data.get('route', [])
-                    restaurants = day_data.get('restaurants', [])
-                    accommodations = day_data.get('accommodations', [])
-                    
-                    all_spots = route + restaurants + accommodations
-                    spot_map = {s.get('name'): s.get('category') for s in all_spots if isinstance(s, dict)}
-                    categories = list(set([spot_map.get(name) for name in spot_names if spot_map.get(name)]))
-        
-        # region이 없으면 에러
-        if not plan_region:
-            raise AppError("region_required", "Region is required for alternative spot recommendation", 400)
-        
-        # route_service를 통해 대체 장소 추천
-        alternatives = route_service.recommend_alternative_spots(
-            region=plan_region,
-            exclude_names=spot_names,
-            categories=categories if categories else None,
-            limit=10
+        # 2. 날짜 계산
+        day_index = int(day_key.replace("day", "")) - 1
+        target_date = (datetime.strptime(plan.date, '%Y-%m-%d') + timedelta(days=day_index)).strftime('%Y-%m-%d')
+        start_time_str = plan.start_time if day_index == 0 else "10:00"
+
+        # 3. 노드 분류 (중요: 여기서 분류를 잘해야 식사시간/고정일정이 지켜짐)
+        only_places = []
+        only_restaurants = []
+        daily_fixed_events = []
+        available_selected = []
+
+        for p in remaining_places:
+            # 딕셔너리 형태로 변환 (Pydantic 모델인 경우 .dict() 호출)
+            node = p if isinstance(p, dict) else p.dict()
+            
+            # 고정 일정 복구
+            if node['type'] == 'fixed':
+                daily_fixed_events.append(node)
+            # 식당 복구 (타임 윈도우 적용 대상)
+            elif node['type'] in ['lunch', 'dinner']:
+                only_restaurants.append(node)
+            # 일반 장소
+            else:
+                only_places.append(node)
+            
+            # 선택 장소 가중치 복구 (이름으로 매칭)
+            if any(s.get('name') == node['name'] for s in summary.get("selected_places", [])):
+                available_selected.append(node)
+
+        # 4. RouteService 최적화 엔진 가동 (Gemini 제외 풀버전)
+        timelines, updated_nodes = route_service.reoptimize_day(
+            places=only_places,
+            restaurants=only_restaurants,
+            fixed_events=daily_fixed_events,
+            start_time_str=start_time_str,
+            target_date_str=target_date,
+            end_time_str="21:00",
+            transport_mode=transport_mode,
+            selected_places=available_selected
         )
-        
-        return alternatives
+
+        # 5. 결과 가공 (type, stay, window를 포함시켜 저장해야 다음 삭제 시에도 재계산 가능)
+        timeline_ordered_route = []
+        for node in updated_nodes:
+            if node['type'] == 'depot': continue
+            timeline_ordered_route.append({
+                "name": node['name'],
+                "category": node['category'],
+                "category2": node.get('category2', ""),
+                "lat": node['lat'], "lng": node['lng'],
+                "addr": node.get("addr", ""),
+                "type": node['type'],
+                "stay": node['stay'],
+                "window": list(node['window']) if node.get('window') else None
+            })
+
+        # 6. DB 업데이트
+        new_variants = dict(variants)
+        new_variants[day_key] = {"route": timeline_ordered_route, "timelines": timelines}
+        plan.variants_json = new_variants
+        flag_modified(plan, "variants_json")
+        await self.db.commit()
+
+        return {"plan_id": plan.plan_id, "updated_day": day_key, "route": timeline_ordered_route, "timelines": timelines}

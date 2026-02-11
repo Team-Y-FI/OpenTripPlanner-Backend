@@ -669,133 +669,133 @@ class RouteOptimizerService:
     # ========== 노드 빌더 (고정 일정 포함) ==========
 
     def _build_fixed_nodes(self, fixed_events, day_start_dt):
-        """고정 일정 노드 생성 (좌표가 있으면 사용, 없으면 None)"""
+        """고정 일정 노드 생성 (엄격한 타임 윈도우 적용)"""
         nodes = []
-        
         for event in fixed_events:
             # 1. 데이터 추출 (Dict/Object 호환)
             if isinstance(event, dict):
                 s_str = event.get('start_time') or event.get('start')
                 e_str = event.get('end_time') or event.get('end')
                 title = event.get('title') or event.get('name', "고정일정")
-                # ✅ [수정] 좌표가 있으면 가져오고, 없으면 None 반환
                 lat = event.get('lat') 
                 lng = event.get('lng')
-                address = event.get('address')
+                address = event.get('address') or event.get('addr', "")
+                # 재계산 시 이미 window가 계산되어 넘어오는 경우를 대비
+                existing_window = event.get('window')
             else:
                 s_str = getattr(event, 'start_time', None) or getattr(event, 'start', None)
                 e_str = getattr(event, 'end_time', None) or getattr(event, 'end', None)
                 title = getattr(event, 'title', None) or getattr(event, 'name', "고정일정")
-                # ✅ [수정] 객체 속성에서 가져오기
                 lat = getattr(event, 'lat', None)
                 lng = getattr(event, 'lng', None)
-                address = getattr(event, 'address', None)
+                address = getattr(event, 'address', None) or ""
+                existing_window = getattr(event, 'window', None)
 
-            # 필수 데이터(시간) 누락 시 건너뜀
-            if not s_str or not e_str: 
-                continue
+            if not s_str or not e_str: continue
 
             try:
-                # 2. 시간 파싱 (기존 로직 유지)
+                # 2. 시간 파싱 및 분 단위 변환
                 if "T" in s_str: s_str = s_str.split("T")[1]
                 if "T" in e_str: e_str = e_str.split("T")[1]
                 
                 dt_start = datetime.strptime(s_str[:5], "%H:%M")
                 dt_end = datetime.strptime(e_str[:5], "%H:%M")
+                
+                start_abs_min = dt_start.hour * 60 + dt_start.minute
+                end_abs_min = dt_end.hour * 60 + dt_end.minute
+                
+                # 3. 체류 시간 및 타임 윈도우 (이미 있으면 유지, 없으면 생성)
+                stay_duration = max(0, end_abs_min - start_abs_min)
+                
+                # window는 솔버가 '도착'해야 하는 시간대입니다.
+                # 고정일정은 정해진 시간에 딱 맞춰 가야 하므로 좁게 잡습니다.
+                window = existing_window or (max(0, start_abs_min - 30), start_abs_min + 10)
+
+                nodes.append({
+                    "name": title,
+                    "category": "고정일정",
+                    "category2": "고정일정",
+                    "lat": float(lat) if lat else None, 
+                    "lng": float(lng) if lng else None,
+                    "addr": address,
+                    "stay": stay_duration,
+                    "type": "fixed", # 고정 타입 명시
+                    "window": window,
+                    "orig_time_str": f"{s_str[:5]} - {e_str[:5]}"
+                })
             except Exception as e:
-                print(f"[Warning] 고정 일정 시간 파싱 실패: {title} - {e}")
+                print(f"[Warning] 고정 일정 생성 실패: {title} - {e}")
                 continue
-
-            # 3. 절대 시간(분) 변환
-            start_abs_min = dt_start.hour * 60 + dt_start.minute
-            end_abs_min = dt_end.hour * 60 + dt_end.minute
-            
-            # 4. 체류 시간 및 타임 윈도우 설정
-            stay_duration = max(0, end_abs_min - start_abs_min)
-            window_start = max(0, start_abs_min - 30)
-            window_end = start_abs_min + 10
-
-            nodes.append({
-                "name": title,
-                "category": "고정일정",
-                "lat": lat, 
-                "lng": lng,
-                "addr": address,
-                "stay": stay_duration,
-                "type": "fixed",
-                "window": (window_start, window_end),
-                "orig_time_str": f"{s_str[:5]} - {e_str[:5]}"
-            })
-
         return nodes
 
     def _build_nodes(self, places, restaurants, fixed_events, day_start_dt, selected_places=None):
+        """전체 노드(출발지, 관광지, 식당, 고정일정) 통합 빌드"""
         nodes = []
-
-        # 시작점 (Depot) - 첫 번째 장소 근처 혹은 서울 시청 등 (여기선 places의 첫번째 좌표 활용)
-        first_loc = places[0] if places else {"lat": 37.5665, "lng": 126.9780}
-
-        # 1. 시작점 (Depot)
-        nodes.append({
-                "name": "시작점",
-                "category": "출발",
-                "category2": "",
-                "lat": places[0]["lat"] if places else 37.5665,
-                "lng": places[0]["lng"] if places else 126.9780,
-                "stay": 0,
-                "type": "depot",
-                "addr": ""
-                })
         
-        # 2. 관광지 추가
+        # 1. 시작점 (Depot)
+        # 시작점은 체류시간 0, 윈도우는 하루 전체
+        nodes.append({
+            "name": "시작점",
+            "category": "출발",
+            "category2": "",
+            "lat": places[0]["lat"] if places else 37.5665,
+            "lng": places[0]["lng"] if places else 126.9780,
+            "stay": 0,
+            "type": "depot",
+            "window": (0, 1440),
+            "addr": ""
+        })
+        
+        # 2. 관광지 (Spot) 추가
         for p in places:
+            # 기존 stay 정보가 있으면 쓰고, 없으면 맵에서 가져옴
+            stay = p.get('stay') or stay_time_map.get(p.get("category"), 60)
             nodes.append({
                 "name": p["name"],
                 "category": p.get("category", "관광지"),
                 "category2": p.get("category2", ""),
-                "lat": p.get("lat"), "lng": p.get("lng"),
-                "stay": stay_time_map.get(p.get("category"), 60),
-                "type": "spot",
+                "lat": p.get("lat"), 
+                "lng": p.get("lng"),
+                "stay": stay,
+                "type": p.get("type", "spot"), # 재계산 시 기존 type 유지
+                "window": p.get("window", (0, 1440)),
                 "addr": p.get("address") or p.get("addr", "")
-                })
+            })
         
-        # 3. 식당 후보군 전체 등록
+        # 3. 식당 후보 (Lunch/Dinner)
         for r in restaurants:
-            nodes.append({
-                "name": r["name"],
-                "category": "음식점",
-                "category2": r.get("category2", "음식점"),
-                "lat": r.get("lat"), "lng": r.get("lng"),
-                "stay": 70,
-                "type": "lunch",  # 점심 타입
-                "addr": r.get("address") or r.get("addr", "")
+            # 점심/저녁용으로 동일 장소를 두 번 등록 (솔버가 택일하도록)
+            for meal_type in ["lunch", "dinner"]:
+                nodes.append({
+                    "name": r["name"],
+                    "category": "음식점",
+                    "category2": r.get("category2", "음식점"),
+                    "lat": r.get("lat"), 
+                    "lng": r.get("lng"),
+                    "stay": r.get("stay", 70),
+                    "type": meal_type,
+                    "window": r.get("window"), # _optimize_day에서 식사시간대로 덮어씌움
+                    "addr": r.get("address") or r.get("addr", "")
                 })
             
-            nodes.append({
-                "name": r["name"],
-                "category": "음식점",
-                "category2": r.get("category2", "음식점"),
-                "lat": r.get("lat"), "lng": r.get("lng"),
-                "stay": 70,
-                "type": "dinner", # 저녁 타입
-                "addr": r.get("address") or r.get("addr", "")
-                })
-            
-        # 4. 선택된 장소 우선 등록
+        # 4. 선택된 장소 (Selected)
         if selected_places:
             for sp in selected_places:
                 nodes.append({
                     "name": sp["name"],
                     "category": sp.get("category", "선택장소"),
                     "category2": sp.get("category2", "선택장소"),
-                    "lat": sp.get("lat"), "lng": sp.get("lng"),
-                    "stay": stay_time_map.get(sp.get("category"), 60),
+                    "lat": sp.get("lat"), 
+                    "lng": sp.get("lng"),
+                    "stay": sp.get("stay") or stay_time_map.get(sp.get("category"), 60),
                     "type": "selected",
+                    "window": sp.get("window", (0, 1440)),
                     "addr": sp.get("address") or sp.get("addr", "")
                 })
         
-        # 고정 일정 빌더 호출
+        # 5. 고정 일정 (Fixed) 통합
         nodes.extend(self._build_fixed_nodes(fixed_events, day_start_dt))
+        
         return nodes
 
     # ========== 타임라인 생성 (라벨링 적용) ==========
@@ -1227,6 +1227,19 @@ class RouteOptimizerService:
         except Exception as e:
             print(f"Gemini API 오류: {e}")
             return None, 0
+        
+    def reoptimize_day(self, places, restaurants, fixed_events, start_time_str, target_date_str, end_time_str, transport_mode, selected_places):
+        """외부 모듈(PlanService 등)에서 특정 날짜의 경로 최적화만 단독으로 재실행할 때 사용"""
+        return self._optimize_day(
+            places=places,
+            restaurants=restaurants,
+            fixed_events=fixed_events,
+            start_time_str=start_time_str,
+            target_date_str=target_date_str,
+            end_time_str=end_time_str,
+            transport_mode=transport_mode,
+            selected_places=selected_places
+        )
 
     def generate_plan(self, request: PlanGenerateRequest):
 
