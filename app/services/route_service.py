@@ -70,7 +70,7 @@ SEOUL_GU_COORDS = {
 # [최적화 관련 제약 조건 상수]
 FALLBACK_MOVE_MIN = 30         # 경로 탐색 실패 시 기본 적용할 이동 시간(분)
 MAX_TRANSFERS = 2              # 최대 환승 횟수 허용치
-MAX_TRAVEL_TIME_MIN = 120      # 장소 간 최대 허용 이동 시간(분)
+MAX_TRAVEL_TIME_MIN = 80      # 장소 간 최대 허용 이동 시간(분)
 LUNCH_WINDOW = ("11:00", "14:00")  # 점심 식사 가능 시간대
 DINNER_WINDOW = ("17:00", "20:00") # 저녁 식사 가능 시간대
 
