@@ -1,0 +1,576 @@
+{
+  "day1": {
+    "route": [
+      {
+        "name": "을지로 노가리골목",
+        "category": "관광지",
+        "category2": "도시/지역문화관광",
+        "lat": 37.5663295246,
+        "lng": 126.9926641809,
+        "addr": "서울특별시 중구 을지로 129 을지로3가역 3호선",
+        "type": "spot",
+        "stay": 90,
+        "window": [
+          0,
+          1440
+        ],
+        "orig_time_str": ""
+      },
+      {
+        "name": "호랑이",
+        "category": "카페",
+        "category2": "카페",
+        "lat": 37.5671183729,
+        "lng": 126.9955083433,
+        "addr": "서울특별시 중구 을지로 157(산림동)",
+        "type": "spot",
+        "stay": 50,
+        "window": [
+          0,
+          1440
+        ],
+        "orig_time_str": ""
+      },
+      {
+        "name": "호남식당",
+        "category": "음식점",
+        "category2": "한식",
+        "lat": 37.5598827704,
+        "lng": 126.9769824584,
+        "addr": "서울특별시 중구 남대문시장길 18-6",
+        "type": "lunch",
+        "stay": 70,
+        "window": null,
+        "orig_time_str": ""
+      },
+      {
+        "name": "키다리아저씨",
+        "category": "틈새 카페",
+        "category2": "카페",
+        "lat": 37.5584928548,
+        "lng": 126.9106413228,
+        "addr": "서울특별시 마포구 성미산로 22 (성산동)",
+        "type": "gap_filler",
+        "stay": 45,
+        "window": null,
+        "orig_time_str": ""
+      },
+      {
+        "name": "운동",
+        "category": "고정일정",
+        "category2": "고정일정",
+        "lat": 37.5575471318329,
+        "lng": 126.908213840628,
+        "addr": "서울 마포구 월드컵로23길 4",
+        "type": "fixed",
+        "stay": 100,
+        "window": [
+          940,
+          965
+        ],
+        "orig_time_str": "16:00 - 17:40"
+      },
+      {
+        "name": "사찰음식 전문점 발우공양",
+        "category": "음식점",
+        "category2": "한식",
+        "lat": 37.5739312489,
+        "lng": 126.9831814961,
+        "addr": "서울특별시 종로구 우정국로 56",
+        "type": "dinner",
+        "stay": 70,
+        "window": null,
+        "orig_time_str": ""
+      },
+      {
+        "name": "발렁스",
+        "category": "카페",
+        "category2": "카페",
+        "lat": 37.5795528837,
+        "lng": 126.9868587793,
+        "addr": "서울특별시 종로구 계동길 50 (계동)",
+        "type": "spot",
+        "stay": 50,
+        "window": [
+          0,
+          1440
+        ],
+        "orig_time_str": ""
+      }
+    ],
+    "restaurants": [
+      {
+        "name": "체부동잔치집돼지갈비",
+        "category": "음식점",
+        "category2": "한식",
+        "lat": 37.5766001654,
+        "lng": 126.9710686355,
+        "addr": "서울특별시 종로구 자하문로1길 24",
+        "type": "restaurant"
+      },
+      {
+        "name": "사찰음식 전문점 발우공양",
+        "category": "음식점",
+        "category2": "한식",
+        "lat": 37.5739312489,
+        "lng": 126.9831814961,
+        "addr": "서울특별시 종로구 우정국로 56",
+        "type": "restaurant"
+      },
+      {
+        "name": "개성만두 궁",
+        "category": "음식점",
+        "category2": "한식",
+        "lat": 37.5743229103,
+        "lng": 126.9854257249,
+        "addr": "서울특별시 종로구 인사동10길 11-3 (관훈동)",
+        "type": "restaurant"
+      },
+      {
+        "name": "호남식당",
+        "category": "음식점",
+        "category2": "한식",
+        "lat": 37.5598827704,
+        "lng": 126.9769824584,
+        "addr": "서울특별시 중구 남대문시장길 18-6",
+        "type": "restaurant"
+      }
+    ],
+    "accommodations": [
+      {
+        "name": "유준당 바이 버틀러리",
+        "category": "숙박",
+        "category2": "펜션/민박",
+        "lat": 37.5821109276,
+        "lng": 126.9873142207,
+        "addr": "서울특별시 종로구 계동4길 10-4 (계동)",
+        "type": "accommodation"
+      }
+    ],
+    "timelines": {
+      "fastest_version": [
+        {
+          "name": "을지로 노가리골목",
+          "category": "관광지",
+          "category2": "도시/지역문화관광",
+          "time": "10:00 - 11:30 [🟢여유]",
+          "transit_to_here": [],
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 서행🟡"
+        },
+        {
+          "name": "호랑이",
+          "category": "카페",
+          "category2": "카페",
+          "time": "11:38 - 12:28 [🟢여유]",
+          "transit_to_here": [
+            "도보 : 8분"
+          ],
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 서행🟡"
+        },
+        {
+          "name": "호남식당",
+          "category": "음식점",
+          "category2": "한식",
+          "time": "12:44 - 14:12 [🔴혼잡 (+18분)]",
+          "transit_to_here": [
+            "도보 : 2분",
+            "대기 : 3분 [🟡혼잡 (+1분)]",
+            "[버스][100, 152, 202, 261, N30] : 을지로4가 → 북창동.남대문시장 : 6분 [🟢원활 (+1분)]",
+            "도보 : 5분"
+          ],
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 원활🟢"
+        },
+        {
+          "name": "키다리아저씨",
+          "category": "틈새 카페",
+          "category2": "카페",
+          "time": "14:57 - 15:54 [🔴혼잡 (+12분)]",
+          "transit_to_here": [
+            "도보 : 6분",
+            "대기 : 2분 [🟢혼잡]",
+            "[버스][7013A, 7013B] : 남대문시장.회현역 → 망원시장.망원동월드컵시장입구 : 32분 [🔴정체 (+12분)]",
+            "도보 : 5분"
+          ],
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 정체🔴"
+        },
+        {
+          "name": "운동",
+          "category": "고정일정",
+          "category2": "고정일정",
+          "time": "16:00 - 17:40",
+          "transit_to_here": [
+            "도보 : 5분",
+            "현장 대기 : 1분"
+          ],
+          "population_level": "고정일정",
+          "traffic_level": "교통 정체🔴"
+        },
+        {
+          "name": "사찰음식 전문점 발우공양",
+          "category": "음식점",
+          "category2": "한식",
+          "time": "18:26 - 19:36 [🟢여유]",
+          "transit_to_here": [
+            "도보 : 1분",
+            "대기 : 3분 [🔴혼잡 (+1분)]",
+            "[버스][271] : 망원시장.망원동월드컵시장입구 → 충정로역 : 20분 [🟡서행 (+6분)]",
+            "대기 : 5분 [🔴혼잡 (+2분)]",
+            "[버스][171] : 충정로역 → 경복궁 : 9분 [🟡서행 (+3분)]",
+            "도보 : 8분"
+          ],
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 서행🟡"
+        },
+        {
+          "name": "발렁스",
+          "category": "카페",
+          "category2": "카페",
+          "time": "19:57 - 20:47 [🟢여유]",
+          "transit_to_here": [
+            "도보 : 1분",
+            "대기 : 3분 [🟡혼잡 (+1분)]",
+            "[버스][종로02] : 조계사 → 안국역.인사동 : 3분 [🟡서행 (+1분)]",
+            "대기 : 4분 [🟡혼잡 (+1분)]",
+            "[버스][109, 151, 162, 171, 172, 272, 710, N51] : 안국역.인사동 → 창덕궁.우리소리박물관 : 2분 [🟡서행 (+1분)]",
+            "도보 : 8분"
+          ],
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 서행🟡"
+        }
+      ],
+      "min_transfer_version": [
+        {
+          "name": "을지로 노가리골목",
+          "category": "관광지",
+          "category2": "도시/지역문화관광",
+          "time": "10:00 - 11:30 [🟢여유]",
+          "transit_to_here": [],
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 서행🟡"
+        },
+        {
+          "name": "호랑이",
+          "category": "카페",
+          "category2": "카페",
+          "time": "11:38 - 12:28 [🟢여유]",
+          "transit_to_here": [
+            "도보 : 8분"
+          ],
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 서행🟡"
+        },
+        {
+          "name": "호남식당",
+          "category": "음식점",
+          "category2": "한식",
+          "time": "12:44 - 14:12 [🔴혼잡 (+18분)]",
+          "transit_to_here": [
+            "도보 : 2분",
+            "대기 : 3분 [🟡혼잡 (+1분)]",
+            "[버스][100, 152, 202, 261, N30] : 을지로4가 → 북창동.남대문시장 : 6분 [🟢원활 (+1분)]",
+            "도보 : 5분"
+          ],
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 원활🟢"
+        },
+        {
+          "name": "키다리아저씨",
+          "category": "틈새 카페",
+          "category2": "카페",
+          "time": "14:57 - 15:54 [🔴혼잡 (+12분)]",
+          "transit_to_here": [
+            "도보 : 6분",
+            "대기 : 2분 [🟢혼잡]",
+            "[버스][7013A, 7013B] : 남대문시장.회현역 → 망원시장.망원동월드컵시장입구 : 32분 [🔴정체 (+12분)]",
+            "도보 : 5분"
+          ],
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 정체🔴"
+        },
+        {
+          "name": "운동",
+          "category": "고정일정",
+          "category2": "고정일정",
+          "time": "16:00 - 17:40",
+          "transit_to_here": [
+            "도보 : 5분",
+            "현장 대기 : 1분"
+          ],
+          "population_level": "고정일정",
+          "traffic_level": "교통 정체🔴"
+        },
+        {
+          "name": "사찰음식 전문점 발우공양",
+          "category": "음식점",
+          "category2": "한식",
+          "time": "18:35 - 19:45 [🟢여유]",
+          "transit_to_here": [
+            "도보 : 1분",
+            "대기 : 9분 [🔴혼잡 (+3분)]",
+            "[버스][271] : 망원시장.망원동월드컵시장입구 → 광화문 : 27분 [🟡서행 (+8분)]",
+            "도보 : 18분"
+          ],
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 서행🟡"
+        },
+        {
+          "name": "발렁스",
+          "category": "카페",
+          "category2": "카페",
+          "time": "20:00 - 20:50 [🟢여유]",
+          "transit_to_here": [
+            "도보 : 15분"
+          ],
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 서행🟡"
+        }
+      ]
+    }
+  },
+  "day2": {
+    "route": [
+      {
+        "name": "후암별채",
+        "category": "관광지",
+        "category2": "웰니스관광",
+        "lat": 37.5497617088,
+        "lng": 126.9761522655,
+        "addr": "서울특별시 용산구 후암로35길 39",
+        "type": "spot",
+        "stay": 90,
+        "window": [
+          0,
+          1440
+        ],
+        "orig_time_str": ""
+      },
+      {
+        "name": "일미장어",
+        "category": "음식점",
+        "category2": "한식",
+        "lat": 37.5521975063,
+        "lng": 126.9744412414,
+        "addr": "서울특별시 용산구 후암로57길 35-15 (동자동)",
+        "type": "lunch",
+        "stay": 70,
+        "window": null,
+        "orig_time_str": ""
+      },
+      {
+        "name": "용산역광장",
+        "category": "관광지",
+        "category2": "도시공원",
+        "lat": 37.5298249324,
+        "lng": 126.9647566449,
+        "addr": "서울특별시 용산구 한강대로23길 55 (한강로3가)",
+        "type": "spot",
+        "stay": 90,
+        "window": [
+          0,
+          1440
+        ],
+        "orig_time_str": ""
+      },
+      {
+        "name": "식물학 아이파크몰점",
+        "category": "카페",
+        "category2": "카페",
+        "lat": 37.5298249324,
+        "lng": 126.9647566449,
+        "addr": "서울특별시 용산구 한강대로23길 55 (한강로3가)4층",
+        "type": "spot",
+        "stay": 50,
+        "window": [
+          0,
+          1440
+        ],
+        "orig_time_str": ""
+      },
+      {
+        "name": "진미식당",
+        "category": "음식점",
+        "category2": "한식",
+        "lat": 37.5506445751,
+        "lng": 126.955817982,
+        "addr": "서울특별시 마포구 마포대로 186-6(공덕동)",
+        "type": "dinner",
+        "stay": 70,
+        "window": null,
+        "orig_time_str": ""
+      }
+    ],
+    "restaurants": [
+      {
+        "name": "진미식당",
+        "category": "음식점",
+        "category2": "한식",
+        "lat": 37.5506445751,
+        "lng": 126.955817982,
+        "addr": "서울특별시 마포구 마포대로 186-6(공덕동)",
+        "type": "restaurant"
+      },
+      {
+        "name": "마이시크릿덴",
+        "category": "음식점",
+        "category2": "주점",
+        "lat": 37.5648544009,
+        "lng": 126.9762407191,
+        "addr": "서울특별시 중구 덕수궁길 9401호",
+        "type": "restaurant"
+      },
+      {
+        "name": "쭈꾸미와매운갈비찜",
+        "category": "음식점",
+        "category2": "한식",
+        "lat": 37.563354855,
+        "lng": 126.9917976767,
+        "addr": "서울특별시 중구 마른내로2길 25-1",
+        "type": "restaurant"
+      },
+      {
+        "name": "일미장어",
+        "category": "음식점",
+        "category2": "한식",
+        "lat": 37.5521975063,
+        "lng": 126.9744412414,
+        "addr": "서울특별시 용산구 후암로57길 35-15 (동자동)",
+        "type": "restaurant"
+      }
+    ],
+    "accommodations": [],
+    "timelines": {
+      "fastest_version": [
+        {
+          "name": "후암별채",
+          "category": "관광지",
+          "category2": "웰니스관광",
+          "time": "10:00 - 11:53 [🔴혼잡 (+23분)]",
+          "transit_to_here": [],
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 원활🟢"
+        },
+        {
+          "name": "일미장어",
+          "category": "음식점",
+          "category2": "한식",
+          "time": "12:00 - 13:28 [🔴혼잡 (+18분)]",
+          "transit_to_here": [
+            "도보 : 7분"
+          ],
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 원활🟢"
+        },
+        {
+          "name": "용산역광장",
+          "category": "관광지",
+          "category2": "도시공원",
+          "time": "13:48 - 15:41 [🔴혼잡 (+23분)]",
+          "transit_to_here": [
+            "도보 : 10분",
+            "대기 : 3분 [🟢혼잡]",
+            "[지하철][서울 1호선] : 서울역(지하) → 용산 : 5분",
+            "도보 : 2분"
+          ],
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 정체🔴"
+        },
+        {
+          "name": "식물학 아이파크몰점",
+          "category": "카페",
+          "category2": "카페",
+          "time": "15:42 - 16:45 [🔴혼잡 (+13분)]",
+          "transit_to_here": [
+            "도보 : 1분"
+          ],
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 정체🔴"
+        },
+        {
+          "name": "진미식당",
+          "category": "음식점",
+          "category2": "한식",
+          "time": "17:22 - 18:50 [🔴혼잡 (+18분)]",
+          "transit_to_here": [
+            "도보 : 2분",
+            "대기 : 8분 [🔴혼잡 (+3분)]",
+            "[지하철][경의중앙선] : 용산 → 공덕 : 6분",
+            "도보 : 4분",
+            "대기 : 9분 [🔴혼잡 (+3분)]",
+            "[버스][160, 260, 600, 6015, 7013A, 7013B, 7611, 8671] : 공덕역 → 마포경찰서 : 5분 [🟡서행 (+2분)]",
+            "도보 : 3분"
+          ],
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 서행🟡"
+        }
+      ],
+      "min_transfer_version": [
+        {
+          "name": "후암별채",
+          "category": "관광지",
+          "category2": "웰니스관광",
+          "time": "10:00 - 11:53 [🔴혼잡 (+23분)]",
+          "transit_to_here": [],
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 원활🟢"
+        },
+        {
+          "name": "일미장어",
+          "category": "음식점",
+          "category2": "한식",
+          "time": "12:00 - 13:28 [🔴혼잡 (+18분)]",
+          "transit_to_here": [
+            "도보 : 7분"
+          ],
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 원활🟢"
+        },
+        {
+          "name": "용산역광장",
+          "category": "관광지",
+          "category2": "도시공원",
+          "time": "13:48 - 15:41 [🔴혼잡 (+23분)]",
+          "transit_to_here": [
+            "도보 : 10분",
+            "대기 : 3분 [🟢혼잡]",
+            "[지하철][서울 1호선] : 서울역(지하) → 용산 : 5분",
+            "도보 : 2분"
+          ],
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 정체🔴"
+        },
+        {
+          "name": "식물학 아이파크몰점",
+          "category": "카페",
+          "category2": "카페",
+          "time": "15:42 - 16:45 [🔴혼잡 (+13분)]",
+          "transit_to_here": [
+            "도보 : 1분"
+          ],
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 정체🔴"
+        },
+        {
+          "name": "진미식당",
+          "category": "음식점",
+          "category2": "한식",
+          "time": "17:22 - 18:50 [🔴혼잡 (+18분)]",
+          "transit_to_here": [
+            "도보 : 2분",
+            "대기 : 8분 [🔴혼잡 (+3분)]",
+            "[지하철][경의중앙선] : 용산 → 공덕 : 6분",
+            "도보 : 4분",
+            "대기 : 9분 [🔴혼잡 (+3분)]",
+            "[버스][160, 260, 600, 6015, 7013A, 7013B, 7611, 8671] : 공덕역 → 마포경찰서 : 5분 [🟡서행 (+2분)]",
+            "도보 : 3분"
+          ],
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 서행🟡"
+        }
+      ]
+    }
+  }
+}

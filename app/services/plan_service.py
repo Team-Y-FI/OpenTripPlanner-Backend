@@ -41,6 +41,7 @@ class PlanService:
             print(f"[DEBUG] 요청 모드 확인: {payload.get('transport_mode')}")
             print(f"[DEBUG] 장소 카테고리(categories) 확인: {payload.get('categories')}")
             print(f"[DEBUG] 여행 목적(purposes) 확인: {payload.get('purposes')}")
+            print(f"[DEBUG] 고정된 장소(fixed_events) 확인: {len(fixed_events)}개")
             print(f"[DEBUG] 선택된 장소(selected_places) 확인: {len(selected_places)}개")
 
             # RouteService 요청 객체 생성 (들어온 payload 데이터를 그대로 활용)

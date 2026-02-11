@@ -58,6 +58,7 @@ class PlaceNode(BaseModel):
     type: str  # "spot", "lunch", "dinner", "fixed", "gap_filler"
     stay: int  # 체류 시간(분)
     window: Optional[List[int]] = None  # [시작분, 종료분] 예: [840, 845]
+    orig_time_str: Optional[str] = ""
 
 class RecalculateRouteRequest(BaseModel):
     day_key: str

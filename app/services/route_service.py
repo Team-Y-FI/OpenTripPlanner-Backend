@@ -227,13 +227,13 @@ class SimpleRouteSolver:
                 
                 # 3-1. 장소 유형별 중요도 배점 (점수가 높을수록 방문 우선순위가 됨)
                 if node_type == "fixed":
-                    node_score = 2000     # 고정 일정 (필수)
+                    node_score = 15000    # 고정 일정 (필수)
                 elif node_type == "selected":
-                    node_score = 1500     # 사용자가 선택한 장소
+                    node_score = 10000     # 사용자가 선택한 장소
                 elif node_type in ["lunch", "dinner"]:
-                    node_score = 500      # 식사 
+                    node_score = 5000      # 식사 
                 else:
-                    node_score = 50       # 일반 추천 장소
+                    node_score = 1000       # 일반 추천 장소
 
                 # 3-2. 대기 시간 페널티 (길거리에서 버리는 시간 최소화)
                 if wait_time > 30:
@@ -669,7 +669,7 @@ class RouteOptimizerService:
     # ========== 노드 빌더 (고정 일정 포함) ==========
 
     def _build_fixed_nodes(self, fixed_events, day_start_dt):
-        """고정 일정 노드 생성 (엄격한 타임 윈도우 적용)"""
+        """고정 일정 노드 생성 (초기 생성 및 재계산 모드 완벽 대응)"""
         nodes = []
         for event in fixed_events:
             # 1. 데이터 추출 (Dict/Object 호환)
@@ -680,8 +680,9 @@ class RouteOptimizerService:
                 lat = event.get('lat') 
                 lng = event.get('lng')
                 address = event.get('address') or event.get('addr', "")
-                # 재계산 시 이미 window가 계산되어 넘어오는 경우를 대비
                 existing_window = event.get('window')
+                orig_time_str = event.get('orig_time_str')
+                stay = event.get('stay')
             else:
                 s_str = getattr(event, 'start_time', None) or getattr(event, 'start', None)
                 e_str = getattr(event, 'end_time', None) or getattr(event, 'end', None)
@@ -690,8 +691,32 @@ class RouteOptimizerService:
                 lng = getattr(event, 'lng', None)
                 address = getattr(event, 'address', None) or ""
                 existing_window = getattr(event, 'window', None)
+                orig_time_str = getattr(event, 'orig_time_str', None) 
+                stay = getattr(event, 'stay', None)                   
 
-            if not s_str or not e_str: continue
+            # ==========================================
+            # [재계산 모드] 프론트에서 기존 데이터(window, orig_time_str)를 보냈을 때
+            # ==========================================
+            if not s_str and existing_window and orig_time_str:
+                nodes.append({
+                    "name": title,
+                    "category": "고정일정",
+                    "category2": "고정일정",
+                    "lat": float(lat) if lat else None, 
+                    "lng": float(lng) if lng else None,
+                    "addr": address,
+                    "stay": stay or 60,
+                    "type": "fixed",
+                    "window": tuple(existing_window),
+                    "orig_time_str": orig_time_str
+                })
+                continue
+
+            # ==========================================
+            # [초기 생성 모드] 시작/종료 시간이 있는 경우
+            # ==========================================
+            if not s_str or not e_str: 
+                continue
 
             try:
                 # 2. 시간 파싱 및 분 단위 변환
@@ -703,13 +728,12 @@ class RouteOptimizerService:
                 
                 start_abs_min = dt_start.hour * 60 + dt_start.minute
                 end_abs_min = dt_end.hour * 60 + dt_end.minute
-                
-                # 3. 체류 시간 및 타임 윈도우 (이미 있으면 유지, 없으면 생성)
                 stay_duration = max(0, end_abs_min - start_abs_min)
-                
-                # window는 솔버가 '도착'해야 하는 시간대입니다.
-                # 고정일정은 정해진 시간에 딱 맞춰 가야 하므로 좁게 잡습니다.
-                window = existing_window or (max(0, start_abs_min - 30), start_abs_min + 10)
+
+                if existing_window:
+                    final_window = tuple(existing_window)
+                else:
+                    final_window = (max(0, start_abs_min - 20), start_abs_min + 5)
 
                 nodes.append({
                     "name": title,
@@ -719,21 +743,21 @@ class RouteOptimizerService:
                     "lng": float(lng) if lng else None,
                     "addr": address,
                     "stay": stay_duration,
-                    "type": "fixed", # 고정 타입 명시
-                    "window": window,
+                    "type": "fixed",
+                    "window": final_window,
                     "orig_time_str": f"{s_str[:5]} - {e_str[:5]}"
                 })
             except Exception as e:
                 print(f"[Warning] 고정 일정 생성 실패: {title} - {e}")
                 continue
+                
         return nodes
 
     def _build_nodes(self, places, restaurants, fixed_events, day_start_dt, selected_places=None):
-        """전체 노드(출발지, 관광지, 식당, 고정일정) 통합 빌드"""
+        """전체 노드 통합 빌드 (재계산 시 기존 타입 및 윈도우 보존)"""
         nodes = []
         
         # 1. 시작점 (Depot)
-        # 시작점은 체류시간 0, 윈도우는 하루 전체
         nodes.append({
             "name": "시작점",
             "category": "출발",
@@ -746,10 +770,18 @@ class RouteOptimizerService:
             "addr": ""
         })
         
-        # 2. 관광지 (Spot) 추가
+        # 2. 관광지 (Spot) 및 일반 장소
         for p in places:
-            # 기존 stay 정보가 있으면 쓰고, 없으면 맵에서 가져옴
+            # [수정] 재계산 시 이미 결정된 type과 window가 있다면 최우선으로 사용
+            p_type = p.get("type", "spot")
+            p_window = p.get("window")
+            if p_window:
+                p_window = tuple(p_window) # 리스트 방지
+            else:
+                p_window = (0, 1440)
+
             stay = p.get('stay') or stay_time_map.get(p.get("category"), 60)
+            
             nodes.append({
                 "name": p["name"],
                 "category": p.get("category", "관광지"),
@@ -757,15 +789,19 @@ class RouteOptimizerService:
                 "lat": p.get("lat"), 
                 "lng": p.get("lng"),
                 "stay": stay,
-                "type": p.get("type", "spot"), # 재계산 시 기존 type 유지
-                "window": p.get("window", (0, 1440)),
+                "type": p_type,
+                "window": p_window,
                 "addr": p.get("address") or p.get("addr", "")
             })
         
-        # 3. 식당 후보 (Lunch/Dinner)
+        # 3. 식당 처리 (재계산 모드 대응)
         for r in restaurants:
-            # 점심/저녁용으로 동일 장소를 두 번 등록 (솔버가 택일하도록)
-            for meal_type in ["lunch", "dinner"]:
+            r_type = r.get("type")
+            r_window = r.get("window")
+            if r_window: r_window = tuple(r_window)
+
+            # [수정] 이미 점심/저녁이 결정된 식당인 경우 (재계산 시)
+            if r_type in ["lunch", "dinner"]:
                 nodes.append({
                     "name": r["name"],
                     "category": "음식점",
@@ -773,14 +809,32 @@ class RouteOptimizerService:
                     "lat": r.get("lat"), 
                     "lng": r.get("lng"),
                     "stay": r.get("stay", 70),
-                    "type": meal_type,
-                    "window": r.get("window"), # _optimize_day에서 식사시간대로 덮어씌움
+                    "type": r_type,
+                    "window": r_window, # 결정된 윈도우 유지
                     "addr": r.get("address") or r.get("addr", "")
                 })
+            # [수정] 초기 생성 시 (여러 후보 중 선택해야 할 때)
+            else:
+                for meal_type in ["lunch", "dinner"]:
+                    nodes.append({
+                        "name": r["name"],
+                        "category": "음식점",
+                        "category2": r.get("category2", "음식점"),
+                        "lat": r.get("lat"), 
+                        "lng": r.get("lng"),
+                        "stay": r.get("stay", 70),
+                        "type": meal_type,
+                        "window": None, # _optimize_day에서 식사시간대(11-14/17-20)를 주입함
+                        "addr": r.get("address") or r.get("addr", "")
+                    })
             
         # 4. 선택된 장소 (Selected)
         if selected_places:
             for sp in selected_places:
+                sp_window = sp.get("window")
+                if sp_window: sp_window = tuple(sp_window)
+                else: sp_window = (0, 1440)
+
                 nodes.append({
                     "name": sp["name"],
                     "category": sp.get("category", "선택장소"),
@@ -788,12 +842,12 @@ class RouteOptimizerService:
                     "lat": sp.get("lat"), 
                     "lng": sp.get("lng"),
                     "stay": sp.get("stay") or stay_time_map.get(sp.get("category"), 60),
-                    "type": "selected",
-                    "window": sp.get("window", (0, 1440)),
+                    "type": sp.get("type", "selected"),
+                    "window": sp_window,
                     "addr": sp.get("address") or sp.get("addr", "")
                 })
         
-        # 5. 고정 일정 (Fixed) 통합
+        # 5. 고정 일정 (Fixed)
         nodes.extend(self._build_fixed_nodes(fixed_events, day_start_dt))
         
         return nodes
@@ -934,18 +988,16 @@ class RouteOptimizerService:
         for idx, node in enumerate(nodes): node["id"] = int(idx)
         n = len(nodes)
 
-        # [최적화 옵션] 여유 모드
+        # [최적화 옵션] 여유 모드 및 체류시간 인플레이션 방지
         solver_nodes = copy.deepcopy(nodes)
 
-        for node in solver_nodes:
-            if node["type"] == "spot":
-                node["stay"] = int(node["stay"] * 1.2)
+        # [수정 1] 재계산 판별: 장소(places) 중 이미 window를 가진 곳이 있다면 재계산 모드로 간주
+        is_recalculation = any(p.get('window') for p in places if isinstance(p, dict))
 
-            elif node["type"] in ["lunch", "dinner"]:
+        for node in solver_nodes:
+            # 재계산 모드가 아닐 때(최초 생성 시)만 여유 시간을 1.2배 부여
+            if not is_recalculation and node["type"] in ["spot", "lunch", "dinner"]:
                 node["stay"] = int(node["stay"] * 1.2)
-            
-            elif node["type"] in ["fixed", "depot"]:
-                pass
 
         # 3. 이동 시간 매트릭스 생성 (R5PY + Haversine)
         # 교통 혼잡도 반영을 위해 11시 기준 예측 사용
@@ -968,12 +1020,11 @@ class RouteOptimizerService:
                 if transport_mode == 'car':
                     val += 15
                 
-                # [이동 시간 여유] 20% 추가 (기존 30% -> 10%로 축소)
+                # [이동 시간 여유] 20% 추가
                 val = int(val * 1.2)
                 time_matrix[i][j] = int(val)
 
-
-        # [핵심 수정] 순간이동 로직 적용, 임의의 출발지에서 첫번째 관광 장소 이동시간은 0
+        # [핵심] 순간이동 로직 적용, 임의의 출발지에서 첫번째 관광 장소 이동시간은 0
         for j in range(n):
             time_matrix[0][j] = 0 
 
@@ -983,19 +1034,19 @@ class RouteOptimizerService:
             return dt.hour * 60 + dt.minute
 
         # 식사 시간 윈도우 및 마진 설정
-        l_s, l_e = to_min("11:00"), to_min("14:00")
-        d_s, d_e = to_min("17:00"), to_min("20:00")
+        l_s, l_e = to_min("11:30"), to_min("14:00") # 점심을 11:30으로 조정하여 오전 동선 확보
+        d_s, d_e = to_min("17:30"), to_min("20:00")
         SAFETY_MARGIN = 10
 
         windows = []
         for node in nodes:
-            if node["type"] == "lunch":
+            # [수정 2] 기존 window가 있으면 최우선으로 사용 (재계산 시 시간 고정)
+            if node.get("window") and node["type"] != "depot":
+                windows.append(tuple(node["window"]))
+            elif node["type"] == "lunch":
                 windows.append((l_s, l_e - SAFETY_MARGIN))
             elif node["type"] == "dinner":
                 windows.append((d_s, d_e - SAFETY_MARGIN))
-            elif node["type"] == "fixed":
-                # 고정 일정은 _build_fixed_nodes에서 생성된 엄격한 윈도우 사용
-                windows.append(node.get("window", (0, 1440)))
             else:
                 windows.append((0, max_horizon))
         
@@ -1037,10 +1088,10 @@ class RouteOptimizerService:
             original_travel_min = time_matrix[curr_node['id']][next_node['id']]
             expected_arrival = curr_time_cursor + original_travel_min
 
+            # [수정 3] 틈새 카페 타겟 시간을 하드코딩(l_s, d_s)이 아닌 실제 솔버 윈도우 기준으로 잡음
             target_start_time = None
-            if next_node["type"] == "lunch": target_start_time = l_s
-            elif next_node["type"] == "dinner": target_start_time = d_s
-            elif next_node["type"] == "fixed": target_start_time = next_node["window"][0]
+            if next_node["type"] in ["lunch", "dinner", "fixed"]:
+                target_start_time = windows[next_node["id"]][0]
 
             inserted_cafe = False
 
@@ -1328,22 +1379,22 @@ class RouteOptimizerService:
         name_to_addr = df.set_index("name")["address"].to_dict()
 
         for day_key, day_plan in plan['plans'].items():
-            # 1. Route 리스트
             if 'route' in day_plan:
                 for item in day_plan['route']:
                     item['addr'] = name_to_addr.get(item['name'], "")
+                    item['type'] = 'spot'
             
-            # 2. Restaurants 리스트 (이제 addr 하나만 들어갑니다)
             if 'restaurants' in day_plan:
                 for item in day_plan['restaurants']:
                     item['addr'] = name_to_addr.get(item['name'], "")
+                    item['type'] = 'restaurant' # _build_nodes에서 점심/저녁으로 나눔
 
-            # 3. Accommodations 리스트 (이제 addr 하나만 들어갑니다)
             if 'accommodations' in day_plan:
                 for item in day_plan['accommodations']:
                     item['addr'] = name_to_addr.get(item['name'], "")
+                    item['type'] = 'accommodation'
 
-        # 4. 최적화
+        # 4. 최적화 루프
         start_opt = time.time()
         print(f"최적화 시작 ({total_days}일, Mode: {request.transport_mode})")
         
@@ -1382,7 +1433,7 @@ class RouteOptimizerService:
                         event_dict['addr'] = event_dict.get('address') or event_dict.get('addr', "")
                         daily_fixed_events.append(event_dict)
 
-            # [핵심] 선택된 장소 중 아직 방문하지 않은 장소만 필터링
+            # 선택된 장소 필터링
             available_selected = []
             if request.selected_places:
                 available_selected = [
@@ -1390,6 +1441,7 @@ class RouteOptimizerService:
                     if sp['name'] not in global_visited_selected
                 ]
 
+            # [핵심] 최적화 실행
             timelines, updated_nodes = self._optimize_day(
                 places=plan['plans'][day_key]['route'], 
                 restaurants=plan['plans'][day_key]['restaurants'], 
@@ -1398,18 +1450,17 @@ class RouteOptimizerService:
                 target_date_str=current_date_str,          
                 end_time_str=day_end_time,             
                 transport_mode=request.transport_mode,
-                selected_places=available_selected # 필터링된 목록 전달
+                selected_places=available_selected 
             )
 
-            # 실제로 방문 성공한 'selected' 장소를 전역 방문 셋에 추가
             for node in updated_nodes:
                 if node.get('type') == 'selected':
                     global_visited_selected.add(node['name'])
                     print(f"[방문 확정] {node['name']} (다음 날부터 제외)")
             
-            # 결과 저장
             final_result[day_key]['timelines'] = timelines
         
+            # [수정 포인트] 엔진 메타데이터 보존하여 반환
             clean_route_list = []
             for node in updated_nodes:
                 if node['type'] == 'depot': continue
@@ -1417,8 +1468,13 @@ class RouteOptimizerService:
                     "name": node['name'],
                     "category": node['category'],
                     "category2": node.get('category2', ""),
-                    "lat": node['lat'], "lng": node['lng'],
-                    "addr": node.get("addr", "") 
+                    "lat": node['lat'], 
+                    "lng": node['lng'],
+                    "addr": node.get("addr", ""),
+                    "type": node['type'],
+                    "stay": node['stay'],
+                    "window": list(node['window']) if node.get('window') else None,
+                    "orig_time_str": node.get('orig_time_str', "") # 프론트가 기억할 수 있게 넘겨줌
                 })
             final_result[day_key]['route'] = clean_route_list
             
