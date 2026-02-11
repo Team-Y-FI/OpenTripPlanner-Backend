@@ -215,6 +215,7 @@ class PlanService:
         # [Debug] 프론트엔드에서 넘어온 원본 데이터 확인
         print(f"\n{'='*20} [DEBUG: Recalculate Request] {'='*20}")
         print(f"Plan ID: {plan_id}, Day: {day_key}, Count: {len(remaining_places)}")
+        print(f"[Current Transport Mode] -> {transport_mode}")
 
         # 3. 노드 분류
         only_places = []
