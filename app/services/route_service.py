@@ -39,8 +39,8 @@ OSM_FILE = os.path.join(DATA_DIR, "seoul_osm_v.pbf")                 # OpenStree
 GTFS_FILES = [os.path.join(DATA_DIR, "seoul_area_gtfs.zip")]         # 서울 대중교통 노선 데이터 (GTFS)
 TN_CACHE_PATH = os.path.join(DATA_DIR, "seoul_tn_cached.pkl")        # 교통 네트워크 캐시
 META_CACHE_PATH = os.path.join(DATA_DIR, "metadata_cache_v2.pkl")    # 메타데이터 캐시
-RESULT_JSON_PATH = os.path.join(DATA_DIR, "result.json")             # 중간 결과 저장용
-RESULT_FINAL_PATH = os.path.join(DATA_DIR, "result_timeline.json")   # 최종 타임라인 결과 저장용
+RESULT_JSON_PATH = "result.json"  # 중간 결과 저장용
+RESULT_FINAL_PATH = "result_timeline.json"  # 최종 타임라인 결과 저장용
 
 # [휴일 데이터] 2026년도 한국 법정공휴일 리스트 (휴일 여부에 따른 혼잡도/영업시간 차이 반영 목적)
 KOREAN_HOLIDAYS_2026 = [
