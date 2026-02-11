@@ -199,7 +199,7 @@ class PlanService:
         return await self.repo.list_saved_plans_by_spot(user_id, spot_id, limit=limit)
 
     async def recalculate_route(self, user_id: str, plan_id: str, day_key: str, remaining_places: list):
-        # 1. DB에서 기존 플랜 조회 (이동수단 등 원본 설정 확인용)
+        # 1. DB에서 기존 플랜 조회
         plan = await self.repo.get_plan(user_id, plan_id)
         if not plan: raise AppError("plan_not_found", "플랜을 찾을 수 없습니다", 404)
 
@@ -212,31 +212,38 @@ class PlanService:
         target_date = (datetime.strptime(plan.date, '%Y-%m-%d') + timedelta(days=day_index)).strftime('%Y-%m-%d')
         start_time_str = plan.start_time if day_index == 0 else "10:00"
 
-        # 3. 노드 분류 (중요: 여기서 분류를 잘해야 식사시간/고정일정이 지켜짐)
+        # [Debug] 프론트엔드에서 넘어온 원본 데이터 확인
+        print(f"\n{'='*20} [DEBUG: Recalculate Request] {'='*20}")
+        print(f"Plan ID: {plan_id}, Day: {day_key}, Count: {len(remaining_places)}")
+
+        # 3. 노드 분류
         only_places = []
         only_restaurants = []
         daily_fixed_events = []
         available_selected = []
 
-        for p in remaining_places:
-            # 딕셔너리 형태로 변환 (Pydantic 모델인 경우 .dict() 호출)
+        for i, p in enumerate(remaining_places):
             node = p if isinstance(p, dict) else p.dict()
             
-            # 고정 일정 복구
-            if node['type'] == 'fixed':
+            # 고정 일정의 이름은 'name' 또는 'title' 둘 다 확인해야 함
+            node_name = node.get('name') or node.get('title', "이름 없음")
+            
+            # [Debug] 각 노드별 타입/시간 정보 확인
+            print(f"  [{i}] {node_name}: type={node.get('type')}, orig_time={node.get('orig_time_str')}")
+
+            # 분류 로직
+            if node.get('type') == 'fixed':
                 daily_fixed_events.append(node)
-            # 식당 복구 (타임 윈도우 적용 대상)
-            elif node['type'] in ['lunch', 'dinner']:
+            elif node.get('type') in ['lunch', 'dinner']:
                 only_restaurants.append(node)
-            # 일반 장소
             else:
                 only_places.append(node)
             
-            # 선택 장소 가중치 복구 (이름으로 매칭)
-            if any(s.get('name') == node['name'] for s in summary.get("selected_places", [])):
+            # 선택 장소 가중치 복구
+            if any(s.get('name') == node_name for s in summary.get("selected_places", [])):
                 available_selected.append(node)
 
-        # 4. RouteService 최적화 엔진 가동 (Gemini 제외 풀버전)
+        # 4. RouteService 최적화 엔진 가동
         timelines, updated_nodes = route_service.reoptimize_day(
             places=only_places,
             restaurants=only_restaurants,
@@ -248,20 +255,29 @@ class PlanService:
             selected_places=available_selected
         )
 
-        # 5. 결과 가공 (type, stay, window를 포함시켜 저장해야 다음 삭제 시에도 재계산 가능)
+        # 5. 결과 가공 (중요: orig_time_str를 반드시 포함해서 저장해야 함!)
         timeline_ordered_route = []
         for node in updated_nodes:
             if node['type'] == 'depot': continue
-            timeline_ordered_route.append({
+            
+            # ✨ [핵심 수정] 다음 재계산 시에도 '고정' 속성을 잃지 않도록 모든 메타데이터 보존
+            processed_node = {
                 "name": node['name'],
                 "category": node['category'],
                 "category2": node.get('category2', ""),
-                "lat": node['lat'], "lng": node['lng'],
+                "lat": node['lat'], 
+                "lng": node['lng'],
                 "addr": node.get("addr", ""),
                 "type": node['type'],
                 "stay": node['stay'],
-                "window": list(node['window']) if node.get('window') else None
-            })
+                "window": list(node['window']) if node.get('window') else None,
+                "orig_time_str": node.get('orig_time_str', "") # ✨ 반드시 추가!
+            }
+            timeline_ordered_route.append(processed_node)
+
+        # [Debug] 엔진 결과 확인
+        print(f"DEBUG: [Optimization Result] Final count: {len(timeline_ordered_route)}")
+        print(f"{'='*60}\n")
 
         # 6. DB 업데이트
         new_variants = dict(variants)
@@ -270,4 +286,9 @@ class PlanService:
         flag_modified(plan, "variants_json")
         await self.db.commit()
 
-        return {"plan_id": plan.plan_id, "updated_day": day_key, "route": timeline_ordered_route, "timelines": timelines}
+        return {
+            "plan_id": plan.plan_id, 
+            "updated_day": day_key, 
+            "route": timeline_ordered_route, 
+            "timelines": timelines
+        }
