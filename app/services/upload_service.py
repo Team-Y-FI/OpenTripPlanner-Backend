@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import UploadFile
 from app.core.config import settings
@@ -10,6 +11,30 @@ from app.utils.exif import extract_exif_lat_lng_taken_at_bytes
 def _allowed_exts() -> set[str]:
     raw = settings.UPLOAD_ALLOWED_EXTS or ""
     return {e.strip().lower() for e in raw.split(",") if e.strip()}
+
+def _coerce_float(value) -> float | None:
+    try:
+        num = float(value)
+        return num
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_taken_at(value) -> datetime | None:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            cleaned = value.strip()
+            if cleaned.endswith("Z"):
+                cleaned = cleaned.replace("Z", "+00:00")
+            return datetime.fromisoformat(cleaned)
+        except ValueError:
+            return None
+    return None
+
 
 class UploadService:
     def __init__(self, db: AsyncSession):
@@ -25,7 +50,13 @@ class UploadService:
             "allowed_exts": sorted(_allowed_exts()),
         }
 
-    async def create_upload_with_photos(self, user_id: str | None, files: list[UploadFile], exif_required: bool = False):
+    async def create_upload_with_photos(
+        self,
+        user_id: str | None,
+        files: list[UploadFile],
+        exif_required: bool = False,
+        metas: list[dict] | None = None,
+    ):
         max_photos = settings.UPLOAD_MAX_PHOTOS
         if len(files) > max_photos:
             raise ValueError(f"max {max_photos} photos allowed")
@@ -50,8 +81,20 @@ class UploadService:
         geo_enabled = bool(geo_svc.kakao_rest_api_key or geo_svc.google_api_key)
 
         photos_out = []
-        for f, content in prepared:
+        for idx, (f, content) in enumerate(prepared):
             lat, lng, taken_at = extract_exif_lat_lng_taken_at_bytes(content)
+
+            meta = metas[idx] if metas and idx < len(metas) else None
+            if isinstance(meta, dict):
+                meta_lat = _coerce_float(meta.get("lat"))
+                meta_lng = _coerce_float(meta.get("lng"))
+                meta_taken_at = _parse_taken_at(meta.get("taken_at"))
+
+                if meta_lat is not None and meta_lng is not None:
+                    lat = meta_lat
+                    lng = meta_lng
+                if meta_taken_at is not None:
+                    taken_at = meta_taken_at
             key = await self.storage.save_bytes(f.filename, content)
 
             status = "recognized" if lat is not None and lng is not None else "needs_manual"
