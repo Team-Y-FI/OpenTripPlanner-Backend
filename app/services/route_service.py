@@ -28,17 +28,17 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 MODEL_DIR = os.path.join(BASE_DIR, "model")
 
 # [모델 경로]
-TRAFFIC_MODEL_FILE = "./model/traffic_congestion_model_latlon.pkl"     # 이동 시간용 (교통량)
-POPULATION_MODEL_FILE = "./model/congestion_model_latlon.pkl"          # 체류/대기용 (인구)
+TRAFFIC_MODEL_FILE = os.path.join(MODEL_DIR, "traffic_congestion_model_latlon.pkl")     # 이동 시간용 (교통량)
+POPULATION_MODEL_FILE = os.path.join(MODEL_DIR, "congestion_model_latlon.pkl")          # 체류/대기용 (인구)
 
 # [데이터 경로]
-PLACE_FILE = "./data/place_전체_통합_진짜최종.xlsx"
-OSM_FILE = "./data/seoul_osm_v.pbf"
-GTFS_FILES = ["./data/seoul_area_gtfs.zip"]
-TN_CACHE_PATH = "./data/seoul_tn_cached.pkl"
-META_CACHE_PATH = "./data/metadata_cache_v2.pkl"
-RESULT_JSON_PATH = "result.json"
-RESULT_FINAL_PATH = "result_timeline.json"
+PLACE_FILE = os.path.join(DATA_DIR, "place_전체_통합_진짜최종.xlsx")
+OSM_FILE = os.path.join(DATA_DIR, "seoul_osm_v.pbf")
+GTFS_FILES = [os.path.join(DATA_DIR, "seoul_area_gtfs.zip")]
+TN_CACHE_PATH = os.path.join(DATA_DIR, "seoul_tn_cached.pkl")
+META_CACHE_PATH = os.path.join(DATA_DIR, "metadata_cache_v2.pkl")
+RESULT_JSON_PATH = os.path.join(DATA_DIR, "result.json")
+RESULT_FINAL_PATH = os.path.join(DATA_DIR, "result_timeline.json")
 
 KOREAN_HOLIDAYS_2026 = [
     '20260101', '20260216', '20260217', '20260218', '20260301', '20260302',
