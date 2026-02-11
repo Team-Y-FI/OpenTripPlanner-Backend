@@ -47,5 +47,22 @@ class AlternativeSpot(BaseModel):
     lng: float
     reason: Optional[str] = None  # 추천 이유
 
+class PlaceNode(BaseModel):
+    name: str
+    category: str
+    category2: Optional[str] = ""
+    lat: float
+    lng: float
+    addr: Optional[str] = ""
+    # [추가] 엔진이 장소의 성격을 파악하기 위한 필드
+    type: str  # "spot", "lunch", "dinner", "fixed", "gap_filler"
+    stay: int  # 체류 시간(분)
+    window: Optional[List[int]] = None  # [시작분, 종료분] 예: [840, 845]
+    orig_time_str: Optional[str] = ""
+
+class RecalculateRouteRequest(BaseModel):
+    day_key: str
+    remaining_places: List[PlaceNode]
+
 class ReplaceSpotsResponse(BaseModel):
     alternatives: List[AlternativeSpot]
