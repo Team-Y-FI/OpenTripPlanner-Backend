@@ -14,32 +14,35 @@ from app.schemas.plan import PlanGenerateRequest
 available_cores = multiprocessing.cpu_count() * 0.8
 TARGET_THREADS = available_cores
 os.environ["R5PY_NUM_THREADS"] = str(TARGET_THREADS)
+
+# [Java 환경 설정] r5py(대중교통 라우팅 라이브러리) 구동을 위한 JVM 설정
 os.environ["JAVA_HOME"] = r"C:\Program Files\Java\jdk-21.0.10"
 os.environ["JAVA_OPTS"] = (
-    f"-Xmx12G " # 메모리 여유가 있다면 12G로 증설 추천
-    f"-XX:+UseG1GC " # 가비지 컬렉션 최적화 (성능 안정성)
+    f"-Xmx12G " # 힙 메모리 12GB 할당 (메모리 부족 방지)
+    f"-XX:+UseG1GC " # G1 가비지 컬렉터 사용 (대용량 메모리 환경에서 성능 안정성 확보)
     f"-Djava.util.concurrent.ForkJoinPool.common.parallelism={TARGET_THREADS}"
 )
 
 from r5py import TransportNetwork, TravelTimeMatrix, DetailedItineraries, TransportMode
 
+# [경로 설정] 프로젝트 루트 디렉토리 및 주요 하위 디렉토리(데이터, 모델) 경로 정의
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 MODEL_DIR = os.path.join(BASE_DIR, "model")
 
-# [모델 경로]
-TRAFFIC_MODEL_FILE = os.path.join(MODEL_DIR, "traffic_congestion_model_latlon.pkl")     # 이동 시간용 (교통량)
-POPULATION_MODEL_FILE = os.path.join(MODEL_DIR, "congestion_model_latlon.pkl")          # 체류/대기용 (인구)
+# [모델 및 데이터 파일 경로] 
+TRAFFIC_MODEL_FILE = os.path.join(MODEL_DIR, "traffic_congestion_model_latlon.pkl")     # 이동 시간 예측용 (교통량 기반)
+POPULATION_MODEL_FILE = os.path.join(MODEL_DIR, "congestion_model_latlon.pkl")          # 체류/대기 시간 예측용 (인구/혼잡도 기반)
 
-# [데이터 경로]
-PLACE_FILE = os.path.join(DATA_DIR, "place_전체_통합_진짜최종.xlsx")
-OSM_FILE = os.path.join(DATA_DIR, "seoul_osm_v.pbf")
-GTFS_FILES = [os.path.join(DATA_DIR, "seoul_area_gtfs.zip")]
-TN_CACHE_PATH = os.path.join(DATA_DIR, "seoul_tn_cached.pkl")
-META_CACHE_PATH = os.path.join(DATA_DIR, "metadata_cache_v2.pkl")
-RESULT_JSON_PATH = os.path.join(DATA_DIR, "result.json")
-RESULT_FINAL_PATH = os.path.join(DATA_DIR, "result_timeline.json")
+PLACE_FILE = os.path.join(DATA_DIR, "place_전체_통합_진짜최종.xlsx") # 장소 마스터 데이터
+OSM_FILE = os.path.join(DATA_DIR, "seoul_osm_v.pbf")                 # OpenStreetMap 서울 지도 데이터
+GTFS_FILES = [os.path.join(DATA_DIR, "seoul_area_gtfs.zip")]         # 서울 대중교통 노선 데이터 (GTFS)
+TN_CACHE_PATH = os.path.join(DATA_DIR, "seoul_tn_cached.pkl")        # 교통 네트워크 캐시
+META_CACHE_PATH = os.path.join(DATA_DIR, "metadata_cache_v2.pkl")    # 메타데이터 캐시
+RESULT_JSON_PATH = os.path.join(DATA_DIR, "result.json")             # 중간 결과 저장용
+RESULT_FINAL_PATH = os.path.join(DATA_DIR, "result_timeline.json")   # 최종 타임라인 결과 저장용
 
+# [휴일 데이터] 2026년도 한국 법정공휴일 리스트 (휴일 여부에 따른 혼잡도/영업시간 차이 반영 목적)
 KOREAN_HOLIDAYS_2026 = [
     '20260101', '20260216', '20260217', '20260218', '20260301', '20260302',
     '20260505', '20260524', '20260525', '20260606', '20260608', '20260815',
@@ -47,6 +50,7 @@ KOREAN_HOLIDAYS_2026 = [
     '20261009', '20261225'
 ]
 
+# [위치 데이터] 서울시 25개 구청 기준 중심 좌표 (지역구 단위 거리 계산 및 필터링 시 활용)
 SEOUL_GU_COORDS = {
     "강남구": {"lat": 37.514575, "lng": 127.0495556}, "강동구": {"lat": 37.52736667, "lng": 127.1258639},
     "강북구": {"lat": 37.63695556, "lng": 127.0277194}, "강서구": {"lat": 37.54815556, "lng": 126.851675},
@@ -63,38 +67,47 @@ SEOUL_GU_COORDS = {
     "중랑구": {"lat": 37.60380556, "lng": 127.0947778}
 }
 
-FALLBACK_MOVE_MIN = 30
-MAX_TRANSFERS = 2
-MAX_TRAVEL_TIME_MIN = 60
-LUNCH_WINDOW = ("11:00", "14:00")
-DINNER_WINDOW = ("17:00", "20:00")
+# [최적화 관련 제약 조건 상수]
+FALLBACK_MOVE_MIN = 30         # 경로 탐색 실패 시 기본 적용할 이동 시간(분)
+MAX_TRANSFERS = 2              # 최대 환승 횟수 허용치
+MAX_TRAVEL_TIME_MIN = 60       # 장소 간 최대 허용 이동 시간(분)
+LUNCH_WINDOW = ("11:00", "14:00")  # 점심 식사 가능 시간대
+DINNER_WINDOW = ("17:00", "20:00") # 저녁 식사 가능 시간대
 
+# [장소 유형별 기본 체류 시간] 단위: 분
 stay_time_map = {
     "관광지": 90, "카페": 50, "음식점": 70,
     "박물관": 120, "공원": 60, "시장": 80, "숙박": 0
 }
 
 # ============================================================
-# 타임라인, 경로 최적화 구현
+# 2. 타임라인 및 경로 최적화 (DFS 기반)
 # ============================================================
 class SimpleRouteSolver:
+    """
+    주어진 장소(Node)들과 이동 시간 행렬을 바탕으로, 
+    가장 효율적이고 점수가 높은 최적의 방문 순서를 찾는 클래스입니다.
+    (DFS 완전 탐색을 사용하며, 제약 조건과 페널티를 통해 가지치기를 수행합니다.)
+    """
     def __init__(self, nodes, time_matrix, windows, start_min, max_horizon):
-        self.nodes = nodes
-        self.matrix = time_matrix
-        self.windows = windows
-        self.start_min = start_min
-        self.max_horizon = max_horizon
-        self.n = len(nodes)
+        self.nodes = nodes               # 방문해야 할 장소 리스트 (속성 포함)
+        self.matrix = time_matrix        # 장소 간 이동 시간 행렬 (N x N)
+        self.windows = windows           # 각 장소별 방문 가능 시간대(Time Window)
+        self.start_min = start_min       # 일정 시작 시간 (분 단위 변환값)
+        self.max_horizon = max_horizon   # 일정 종료 데드라인 (분 단위 변환값)
+        self.n = len(nodes)              # 총 노드(장소) 개수
 
-        self.best_path = []
-        self.best_cost = float('inf')
-        self.best_score = -1 
-        self.best_arrival_times = {}
+        # 최적의 결과를 저장할 변수 초기화
+        self.best_path = []              # 최고 점수를 받은 방문 순서(인덱스 리스트)
+        self.best_cost = float('inf')    # 최고 점수 경로의 총 소요 비용(시간+페널티)
+        self.best_score = -1             # 갱신된 최고 점수
+        self.best_arrival_times = {}     # 최고 점수 경로의 장소별 도착 예상 시간
     
     def solve(self):
         visited = [False] * self.n
-        visited[0] = True
+        visited[0] = True # 시작점(보통 숙소 또는 출발지)은 방문 처리
 
+        # 깊이 우선 탐색(DFS) 시작
         self._dfs(
             curr_idx=0,
             curr_time=self.start_min,
@@ -103,15 +116,16 @@ class SimpleRouteSolver:
             total_cost=0,
             current_score=0,
             arrival_times={0: self.start_min},
-            has_lunch=False,
-            has_dinner=False
+            has_lunch=False,   # 점심 식사 여부 초기화
+            has_dinner=False   # 저녁 식사 여부 초기화
         )
 
         return self.best_path, self.best_arrival_times
 
     def _dfs(self, curr_idx, curr_time, visited, path, total_cost, current_score, arrival_times, has_lunch, has_dinner):
-        
-        # 1. 신기록 갱신 (동일)
+        # =================================
+        # 1. 최고 기록 갱신 (점수가 더 높거나, 점수가 같아도 비용이 낮으면 갱신)
+        # =================================
         if current_score > self.best_score:
             self.best_score = current_score
             self.best_cost = total_cost
@@ -123,26 +137,27 @@ class SimpleRouteSolver:
                 self.best_path = list(path)
                 self.best_arrival_times = arrival_times.copy()
 
-        # 2. 다음 방문지 탐색
+        # =================================
+        # 2. 다음 방문지(Node) 탐색
+        # =================================
         for next_idx in range(self.n):
             if not visited[next_idx]:
                 
                 node = self.nodes[next_idx]
                 node_type = node["type"]
 
-                # 이동 시간 및 도착 예상
+                # 이동 시간 및 도착 예상 시간 계산
                 travel_time = self.matrix[curr_idx][next_idx]
                 arrival = curr_time + travel_time
                 win_start, win_end = self.windows[next_idx]
 
-                # 이미 점심을 먹었다면, 다른 점심 후보는 모두 패스
+                # [제약 조건 1] 식사 중복 방지 (하루 한 번의 점심/저녁만 허용)
                 if node_type == "lunch" and has_lunch:
                     continue
-
-                # 이미 저녁을 먹었다면, 다른 저녁 후보는 모두 패스
                 if node_type == "dinner" and has_dinner:
                     continue
 
+                # [제약 조건 2] 동일한 이름의 장소 중복 방문 방지 (예: 프랜차이즈)
                 is_duplicate_name = False
                 for p_idx in path:
                     if self.nodes[p_idx]["name"] == node["name"]:
@@ -151,21 +166,23 @@ class SimpleRouteSolver:
                 if is_duplicate_name:
                     continue
                 
-                # (A) 고정 일정
+                # (A) 고정 일정 처리 (미리 예약된 시간 등이 있는 경우)
                 if node_type == "fixed":
-                    if arrival > win_end: continue
+                    if arrival > win_end: continue # 운영/예약 시간 종료 후 도착 시 패스
                     start_activity = win_start
+                    # 너무 일찍 도착하면 예약 시간까지 대기
                     wait_time = win_start - arrival if arrival < win_start else 0
 
-                # (B) 일반 일정
+                # (B) 일반 일정 처리 (유동적인 방문)
                 else:
-                    if arrival > win_end: continue
+                    if arrival > win_end: continue # 영업 종료 후 도착 시 패스
                     
                     wait_time = 0
+                    # 오픈 전 도착 시 오픈 시간까지 대기
                     if arrival < win_start:
                         wait_time = win_start - arrival
                     
-                    # 식당 오픈런 예외 처리
+                    # [특외 예외] 첫 번째 일정이 식당이 아닌 경우, 굳이 일찍 가서 기다리지 않음 (오픈런 예외)
                     if len(path) == 1 and node_type not in ["lunch", "dinner"]:
                         wait_time = 0
 
@@ -174,64 +191,70 @@ class SimpleRouteSolver:
                     else:
                         start_activity = arrival + wait_time
 
-                    # Overlap Check
+                    # [제약 조건 3] 고정 일정(Fixed)과의 시간 겹침(Overlap) 검사
                     stay_duration = self.nodes[next_idx]["stay"]
                     temp_leave_time = start_activity + stay_duration
 
                     overlap = False
-                    SAFETY_BUFFER = 20
+                    SAFETY_BUFFER = 20 # 고정 일정 전후로 20분의 여유 시간 강제
 
                     for f_idx in range(self.n):
                         if self.nodes[f_idx]["type"] == "fixed":
                             f_start = self.windows[f_idx][0]
                             f_end_act = f_start + self.nodes[f_idx]["stay"]
+                            
+                            # 현재 일정이 고정 일정 '시작 20분 전'에 끝나거나, '종료 후'에 시작해야 함
                             condition_before = (temp_leave_time + SAFETY_BUFFER <= f_start)
                             condition_after = (start_activity >= f_end_act)
 
                             if not (condition_before or condition_after):
                                 overlap = True
                                 break
-                    if overlap: continue
+                    if overlap: continue # 고정 일정과 겹치면 해당 경로는 폐기
 
-                # ----------------------------------------
-                
+                # =================================
+                # 3. 일정 종료 및 페널티 산정
+                # =================================
                 stay_duration = self.nodes[next_idx]["stay"]
                 leave_time = start_activity + stay_duration
 
-                # [Hard Constraint] 종료 시간 초과 시 경로 폐기
+                # [Hard Constraint] 이 일정을 마치면 데드라인(max_horizon)을 초과하는 경우 폐기
                 if leave_time > self.max_horizon:
                     continue 
 
-                # [수정] 점수 시스템 + 게으름 방지(Morning Penalty)
+                # [수정] 점수 시스템 + 페널티(게으름, 동선 낭비 방지)
                 penalty_cost = 0
                 
-                # 1. 점수 배점
+                # 3-1. 장소 유형별 중요도 배점 (점수가 높을수록 방문 우선순위가 됨)
                 if node_type == "fixed":
-                    node_score = 2000 
+                    node_score = 2000     # 고정 일정 (필수)
                 elif node_type == "selected":
-                    node_score = 1500
+                    node_score = 1500     # 사용자가 선택한 장소
                 elif node_type in ["lunch", "dinner"]:
-                    node_score = 500      
+                    node_score = 500      # 식사 
                 else:
-                    node_score = 50       
+                    node_score = 50       # 일반 추천 장소
 
-                # 2. 대기 시간 페널티 (30분 초과 시 강력 제재)
+                # 3-2. 대기 시간 페널티 (길거리에서 버리는 시간 최소화)
                 if wait_time > 30:
-                    penalty_cost += (wait_time - 30) * 10
+                    penalty_cost += (wait_time - 30) * 10 # 30분 초과 시 1분당 10점 감점
                 
-                # 3. 아침 게으름 방지 (Morning Penalty)
-                # 첫 일정 시작이 계획된 시간보다 40분 이상 늦어지면 감점
+                # 3-3. 아침 게으름 방지 (Morning Penalty)
+                # 첫 일정을 계획한 시작 시간보다 너무 늦게 시작하는 경로 방지
                 if len(path) == 1:
                     delay_from_start = start_activity - self.start_min
                     if delay_from_start > 40:
-                        penalty_cost += (delay_from_start - 40) * 10
+                        penalty_cost += (delay_from_start - 40) * 10 # 40분 초과 시 감점
 
-                # 4. 이동 효율성 (Distance Penalty)
-                # 이동 시간이 길수록 감점 (가까운 식당 선호 유도)
+                # 3-4. 이동 효율성 (Distance Penalty)
+                # 이동 시간이 길수록 감점하여 가까운 장소 위주로 추천 유도
                 penalty_cost += travel_time * 2
-                if travel_time > 40: # 40분 이상 이동은 비효율로 간주
+                if travel_time > 40: # 40분 이상 이동은 매우 비효율적으로 간주
                     penalty_cost += (travel_time - 40) * 10
 
+                # =================================
+                # 4. 상태 업데이트 및 다음 깊이(Depth)로 재귀 호출
+                # =================================
                 visited[next_idx] = True
                 path.append(next_idx)
                 arrival_times[next_idx] = arrival
@@ -239,18 +262,22 @@ class SimpleRouteSolver:
                 next_has_lunch = has_lunch or (node_type == "lunch")
                 next_has_dinner = has_dinner or (node_type == "dinner")
 
+                # 다음 장소로 DFS 탐색 진행
                 self._dfs(
                     next_idx, 
                     leave_time, 
                     visited, 
                     path, 
-                    total_cost + travel_time + wait_time + penalty_cost, 
-                    current_score + node_score - penalty_cost, 
+                    total_cost + travel_time + wait_time + penalty_cost, # 누적 비용 증가
+                    current_score + node_score - penalty_cost,           # 획득 점수 반영
                     arrival_times,
                     next_has_lunch, 
                     next_has_dinner
                 )
 
+                # =================================
+                # 5. 백트래킹 (Backtracking) : 다른 경로 탐색을 위해 상태 복구
+                # =================================
                 path.pop()
                 visited[next_idx] = False
                 del arrival_times[next_idx]
