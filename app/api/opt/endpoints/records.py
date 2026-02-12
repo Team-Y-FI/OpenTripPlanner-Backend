@@ -60,7 +60,15 @@ async def get_spot(spot_id: str, db: AsyncSession = Depends(get_db), user=Depend
     photo = await upload_repo.get_photo(spot.photo_id) if spot.photo_id else None
 
     plan_svc = PlanService(db)
-    related = await plan_svc.list_saved_plans_by_spot(user.user_id, spot.spot_id, limit=20)
+    related = await plan_svc.list_saved_plans_by_spot(
+        user.user_id,
+        spot.spot_id,
+        limit=20,
+        spot_name=spot.name,
+        spot_address=spot.address,
+        spot_lat=spot.lat,
+        spot_lng=spot.lng,
+    )
 
     return {
         "spot_id": spot.spot_id,

@@ -10,10 +10,7 @@
         "addr": "서울 마포구 희우정로16길 32",
         "type": "fixed",
         "stay": 80,
-        "window": [
-          580,
-          605
-        ],
+        "window": [580, 605],
         "orig_time_str": "10:00 - 11:20"
       },
       {
@@ -37,10 +34,7 @@
         "addr": "서울특별시 마포구 서교동",
         "type": "spot",
         "stay": 90,
-        "window": [
-          0,
-          1440
-        ],
+        "window": [0, 1440],
         "orig_time_str": ""
       },
       {
@@ -52,10 +46,7 @@
         "addr": "서울특별시 마포구 상수동",
         "type": "spot",
         "stay": 90,
-        "window": [
-          0,
-          1440
-        ],
+        "window": [0, 1440],
         "orig_time_str": ""
       },
       {
@@ -67,10 +58,7 @@
         "addr": "서울특별시 마포구 와우산로21길 19-3 (서교동)",
         "type": "spot",
         "stay": 90,
-        "window": [
-          0,
-          1440
-        ],
+        "window": [0, 1440],
         "orig_time_str": ""
       },
       {
@@ -143,8 +131,8 @@
           "category2": "고정일정",
           "time": "10:00 - 11:20",
           "transit_to_here": [],
-          "population_level": "고정일정",
-          "traffic_level": "교통 정체🔴"
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 원활🟢"
         },
         {
           "name": "산띠",
@@ -165,9 +153,7 @@
           "category": "관광지",
           "category2": "기타체험",
           "time": "13:23 - 15:03 [🟡보통 (+10분)]",
-          "transit_to_here": [
-            "도보 : 4분"
-          ],
+          "transit_to_here": ["도보 : 4분"],
           "population_level": "인구 보통🟡",
           "traffic_level": "교통 정체🔴"
         },
@@ -176,9 +162,7 @@
           "category": "관광지",
           "category2": "도시/지역문화관광",
           "time": "15:11 - 17:04 [🔴혼잡 (+23분)]",
-          "transit_to_here": [
-            "도보 : 8분"
-          ],
+          "transit_to_here": ["도보 : 8분"],
           "population_level": "인구 혼잡🔴",
           "traffic_level": "교통 정체🔴"
         },
@@ -187,9 +171,7 @@
           "category": "관광지",
           "category2": "도시공원",
           "time": "17:07 - 19:00 [🔴혼잡 (+23분)]",
-          "transit_to_here": [
-            "도보 : 3분"
-          ],
+          "transit_to_here": ["도보 : 3분"],
           "population_level": "인구 혼잡🔴",
           "traffic_level": "교통 정체🔴"
         },
@@ -198,9 +180,7 @@
           "category": "음식점",
           "category2": "한식",
           "time": "19:07 - 20:35 [🔴혼잡 (+18분)]",
-          "transit_to_here": [
-            "도보 : 7분"
-          ],
+          "transit_to_here": ["도보 : 7분"],
           "population_level": "인구 혼잡🔴",
           "traffic_level": "교통 정체🔴"
         }
@@ -234,9 +214,7 @@
           "category": "관광지",
           "category2": "기타체험",
           "time": "13:23 - 15:03 [🟡보통 (+10분)]",
-          "transit_to_here": [
-            "도보 : 4분"
-          ],
+          "transit_to_here": ["도보 : 4분"],
           "population_level": "인구 보통🟡",
           "traffic_level": "교통 정체🔴"
         },
@@ -245,9 +223,7 @@
           "category": "관광지",
           "category2": "도시/지역문화관광",
           "time": "15:11 - 17:04 [🔴혼잡 (+23분)]",
-          "transit_to_here": [
-            "도보 : 8분"
-          ],
+          "transit_to_here": ["도보 : 8분"],
           "population_level": "인구 혼잡🔴",
           "traffic_level": "교통 정체🔴"
         },
@@ -256,9 +232,7 @@
           "category": "관광지",
           "category2": "도시공원",
           "time": "17:07 - 19:00 [🔴혼잡 (+23분)]",
-          "transit_to_here": [
-            "도보 : 3분"
-          ],
+          "transit_to_here": ["도보 : 3분"],
           "population_level": "인구 혼잡🔴",
           "traffic_level": "교통 정체🔴"
         },
@@ -267,9 +241,7 @@
           "category": "음식점",
           "category2": "한식",
           "time": "19:07 - 20:35 [🔴혼잡 (+18분)]",
-          "transit_to_here": [
-            "도보 : 7분"
-          ],
+          "transit_to_here": ["도보 : 7분"],
           "population_level": "인구 혼잡🔴",
           "traffic_level": "교통 정체🔴"
         }
@@ -287,10 +259,7 @@
         "addr": "서울특별시 마포구 독막로4길 3 (합정동)",
         "type": "spot",
         "stay": 50,
-        "window": [
-          0,
-          1440
-        ],
+        "window": [0, 1440],
         "orig_time_str": ""
       },
       {
@@ -302,10 +271,7 @@
         "addr": "서울특별시 영등포구 선유로 343 (당산동)",
         "type": "spot",
         "stay": 90,
-        "window": [
-          0,
-          1440
-        ],
+        "window": [0, 1440],
         "orig_time_str": ""
       },
       {
@@ -329,10 +295,7 @@
         "addr": "서울특별시 영등포구 여의동로 330 (여의도동)",
         "type": "spot",
         "stay": 90,
-        "window": [
-          0,
-          1440
-        ],
+        "window": [0, 1440],
         "orig_time_str": ""
       },
       {
