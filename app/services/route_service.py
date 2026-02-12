@@ -83,8 +83,8 @@ SEOUL_GU_COORDS = {
 FALLBACK_MOVE_MIN = 30         # 경로 탐색 실패 시 기본 이동 시간
 MAX_TRANSFERS = 2              # 최대 환승 횟수
 MAX_TRAVEL_TIME_MIN = 80       # 최대 허용 이동 시간
-LUNCH_WINDOW = ("11:30", "13:40")
-DINNER_WINDOW = ("17:30", "19:40")
+LUNCH_WINDOW = ("12:00", "13:30")
+DINNER_WINDOW = ("18:00", "19:30")
 
 # 장소별 기본 체류 시간 (분)
 stay_time_map = {
@@ -297,8 +297,9 @@ class RouteOptimizerService:
         self.detailed_path_cache = {}
         self.api_key = None
         self.init_duration = 0
-
-    # 3-1. 초기화 및 리소스 로드
+    
+    
+    # ========== 3-1. 초기화 및 리소스 로드 ==========
     def initialize_resources(self):
         if self.is_initialized: return
         start_t = time.time()
@@ -419,7 +420,7 @@ class RouteOptimizerService:
             }, f)
         print("메타데이터 생성 완료")
 
-    # 3-2. 예측 모델 및 가중치 계산
+    # ========== 3-2. 예측 모델 및 가중치 계산 ==========
     def _predict_congestion(self, model, lat, lng, dt):
         if model is None or lat is None or lng is None: return 0
         input_vector = pd.DataFrame([[
@@ -457,7 +458,7 @@ class RouteOptimizerService:
             elif level == 1: return 1.4
         return 1.1
 
-    # 3-3. 거리 및 이동 시간 계산 (Geometry & R5PY)
+    # ========== 3-3. 거리 및 이동 시간 계산 (Geometry & R5PY) ==========
     def _haversine(self, lat1, lng1, lat2, lng2):
         if lat1 is None or lat2 is None or lng1 is None or lng2 is None: return 0
         R = 6371
@@ -466,17 +467,38 @@ class RouteOptimizerService:
         dlambda = math.radians(lng2 - lng1)
         a = math.sin(dphi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda/2)**2
         return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    
+    def _find_nearest_stop(self, lat, lng):
+        """
+        주어진 좌표에서 가장 가까운 GTFS 정류장(지하철/버스)을 찾음
+        """
+        best_dist = float('inf')
+        best_stop = None
+        
+        # 전체 정류장을 순회하며 최소 거리 탐색 (성능을 위해 캐시 권장되나 로직 단순화)
+        for stop_id, coords in self.stop_coords.items():
+            s_lat = coords.get('lat')
+            s_lng = coords.get('lng')
+            if s_lat is None or s_lng is None: continue
+            
+            dist = self._haversine(lat, lng, s_lat, s_lng)
+            if dist < best_dist:
+                best_dist = dist
+                best_stop = {'id': stop_id, 'lat': s_lat, 'lng': s_lng, 'dist': dist}
+                
+        return best_stop
 
     def _travel_minutes(self, p1, p2, mode="transport"):
         if p1 is None or p2 is None or p1.get('lat') is None or p2.get('lat') is None: return 0
         dist = self._haversine(p1['lat'], p1['lng'], p2['lat'], p2['lng'])
 
         if mode == "car":
-            # 30km/h 가정 + 주차/도보 15분
-            drive_time = int(dist / 0.5)
-            return drive_time + 15
-            
-        return int(dist / 30 * 60)
+            drive_time = int((dist / 25) * 60)
+            return drive_time + 10
+        else:
+            transit_time = int((dist / 15) * 60)
+            return transit_time + 5
+        
 
     def _get_r5py_matrix(self, nodes, departure_time, transport_mode="transport"):
         valid_nodes = [n for n in nodes if n.get('lat') is not None]
@@ -548,6 +570,7 @@ class RouteOptimizerService:
 
         if not origins: return path_map
         
+        # [1차 시도] 원래 좌표로 경로 계산
         ogdf = gpd.GeoDataFrame(origins, geometry=gpd.points_from_xy([n['lng'] for n in origins], [n['lat'] for n in origins]), crs='EPSG:4326')
         ogdf['id'] = [n['id'] for n in origins]
         dgdf = gpd.GeoDataFrame(dests, geometry=gpd.points_from_xy([n['lng'] for n in dests], [n['lat'] for n in dests]), crs='EPSG:4326')
@@ -564,12 +587,12 @@ class RouteOptimizerService:
                 transport_modes=modes,
                 max_public_transport_rides=MAX_TRANSFERS,
                 max_time=timedelta(minutes=MAX_TRAVEL_TIME_MIN),
-                snap_to_network=3000
+                snap_to_network=1000
             )
-        except: return path_map
+        except: computer = None
 
-        if computer is None or computer.empty: return path_map
-        mode_col = 'transport_mode' if 'transport_mode' in computer.columns else 'mode'
+        # [결과 파싱 함수]
+        mode_col = 'transport_mode' if computer is not None and 'transport_mode' in computer.columns else 'mode'
 
         def clean_id(val):
             if pd.isna(val): return ""
@@ -584,7 +607,7 @@ class RouteOptimizerService:
                 return math.ceil(seconds / 60) if seconds > 0 else 0
             except: return 0
 
-        def parse_segments(df):
+        def parse_segments(df, is_rescue=False):
             segs = []
             for _, leg in df.iterrows():
                 raw_mode = str(leg[mode_col]).upper()
@@ -625,36 +648,102 @@ class RouteOptimizerService:
                         display_route_name = self.route_id_to_name.get(route_key, "대중교통")
 
                     segs.append(f"[{mode_nm}][{display_route_name}] : {f_name} → {t_name} : {ride_time}분")
+            
+            if is_rescue:
+                segs.append("(인근 정류장 대체)")
+                
             return segs
 
-        for (f_id, t_id), group in computer.groupby(['from_id', 'to_id']):
-            s_node = next((n for n in origins if n['id'] == int(f_id)), None)
-            e_node = next((n for n in dests if n['id'] == int(t_id)), None)
-            if not s_node or not e_node: continue
+        def process_computer_result(comp_df, target_map, is_rescue=False):
+            if comp_df is None or comp_df.empty: return
             
-            safe_key = self._make_cache_key(s_node, e_node, departure_time, transport_mode)
-            options = []
-            for _, opt in group.groupby("option"):
-                total_min = sum(get_minutes_ceil(leg.get('travel_time') or leg.get('duration')) for _, leg in opt.iterrows())
-                transfers = sum(1 for _, leg in opt.iterrows() if 'WALK' not in str(leg[mode_col]).upper())
-                options.append({"route": opt, "time": total_min, "transfers": transfers})
+            for (f_id, t_id), group in comp_df.groupby(['from_id', 'to_id']):
+                # s_node, e_node는 ID로 매칭
+                options = []
+                for _, opt in group.groupby("option"):
+                    total_min = sum(get_minutes_ceil(leg.get('travel_time') or leg.get('duration')) for _, leg in opt.iterrows())
+                    transfers = sum(1 for _, leg in opt.iterrows() if 'WALK' not in str(leg[mode_col]).upper())
+                    options.append({"route": opt, "time": total_min, "transfers": transfers})
 
-            if not options: continue
-            fastest = min(options, key=lambda x: (x['time'], x['transfers']))
-            transit = [o for o in options if o['transfers'] > 0]
-            best_transit = min(transit, key=lambda x: (x['transfers'], x['time'])) if transit else None
-            best_walk = min([o for o in options if o['transfers'] == 0], key=lambda x: x['time'], default=None)
-            
-            winner = best_transit if best_transit else best_walk
-            if best_walk and best_transit and best_walk['time'] <= best_transit['time'] + 5: winner = best_walk
-            
-            entry = {"fastest": parse_segments(fastest['route']), "min_transfer": parse_segments(winner['route']) if winner else [f"도보 : {FALLBACK_MOVE_MIN}분"]}
-            path_map[(int(f_id), int(t_id))] = entry
-            self.detailed_path_cache[safe_key] = entry
+                if not options: continue
+                fastest = min(options, key=lambda x: (x['time'], x['transfers']))
+                transit = [o for o in options if o['transfers'] > 0]
+                best_transit = min(transit, key=lambda x: (x['transfers'], x['time'])) if transit else None
+                best_walk = min([o for o in options if o['transfers'] == 0], key=lambda x: x['time'], default=None)
+                
+                winner = best_transit if best_transit else best_walk
+                if best_walk and best_transit and best_walk['time'] <= best_transit['time'] + 5: winner = best_walk
+                
+                entry = {
+                    "fastest": parse_segments(fastest['route'], is_rescue), 
+                    "min_transfer": parse_segments(winner['route'], is_rescue) if winner else [f"도보 : {FALLBACK_MOVE_MIN}분"]
+                }
+                target_map[(int(f_id), int(t_id))] = entry
+                
+        # 1차 결과 처리
+        process_computer_result(computer, path_map)
         
-        return path_map
+        # [2차 시도] 실패한 구간 식별 및 좌표 보정 (Rescue)
+        failed_pairs = []
+        for s, e in trip_legs:
+            if s['id'] == e['id']: continue
+            # gap_filler는 이미 위에서 처리됨
+            if (s['id'], e['id']) not in path_map:
+                failed_pairs.append((s, e))
+        
+        if failed_pairs:
+            print(f"[Rescue] {len(failed_pairs)}개 구간 경로 실패 -> 인근 정류장 좌표로 재계산 시도")
+            retry_origins, retry_dests = [], []
+            
+            for s, e in failed_pairs:
+                # 각각 가장 가까운 정류장 찾기
+                new_s_stop = self._find_nearest_stop(s['lat'], s['lng'])
+                new_e_stop = self._find_nearest_stop(e['lat'], e['lng'])
+                
+                # 원본 ID는 유지하되 좌표만 변경한 노드 생성
+                rs = copy.deepcopy(s)
+                re_node = copy.deepcopy(e)
+                
+                if new_s_stop:
+                    rs['lat'], rs['lng'] = new_s_stop['lat'], new_s_stop['lng']
+                if new_e_stop:
+                    re_node['lat'], re_node['lng'] = new_e_stop['lat'], new_e_stop['lng']
+                    
+                retry_origins.append(rs)
+                retry_dests.append(re_node)
+            
+            # 재계산
+            rogdf = gpd.GeoDataFrame(retry_origins, geometry=gpd.points_from_xy([n['lng'] for n in retry_origins], [n['lat'] for n in retry_origins]), crs='EPSG:4326')
+            rogdf['id'] = [n['id'] for n in retry_origins]
+            rdgdf = gpd.GeoDataFrame(retry_dests, geometry=gpd.points_from_xy([n['lng'] for n in retry_dests], [n['lat'] for n in retry_dests]), crs='EPSG:4326')
+            rdgdf['id'] = [n['id'] for n in retry_dests]
+            
+            try:
+                rescue_computer = DetailedItineraries(
+                    self.transport_network,
+                    origins=rogdf,
+                    destinations=rdgdf,
+                    departure=departure_time,
+                    transport_modes=modes,
+                    max_public_transport_rides=MAX_TRANSFERS,
+                    max_time=timedelta(minutes=MAX_TRAVEL_TIME_MIN),
+                    snap_to_network=3000
+                )
+                process_computer_result(rescue_computer, path_map, is_rescue=True)
+            except Exception as e:
+                print(f"[Rescue Fail] 재계산 오류: {e}")
+                
+            # 여전히 실패한 구간은 Fallback 처리
+            for s, e in trip_legs:
+                if s['id'] != e['id'] and (s['id'], e['id']) not in path_map:
+                    path_map[(s['id'], e['id'])] = {
+                        "fastest": [f"이동 : {FALLBACK_MOVE_MIN}분 (경로없음)"], 
+                        "min_transfer": [f"이동 : {FALLBACK_MOVE_MIN}분 (경로없음)"]
+                    }
+            
+            return path_map
 
-    # 3-4. 노드 구성 (장소, 고정일정 등)
+    # ========== 3-4. 노드 구성 (장소, 고정일정 등) ==========
     def _build_fixed_nodes(self, fixed_events, day_start_dt):
         """고정 일정 노드 생성"""
         nodes = []
@@ -801,7 +890,7 @@ class RouteOptimizerService:
         
         return nodes
 
-    # 3-5. 타임라인 생성
+    # ========== 3-5. 타임라인 생성 ==========
     def _build_timeline_by_type(self, visited_nodes, path_map, timeline_base_dt, target_date_str, path_type, transport_mode="transport"):
         timeline = []
         if not visited_nodes: return []
@@ -952,7 +1041,7 @@ class RouteOptimizerService:
             
         return timeline
     
-    # 3-6. 핵심 최적화 로직 (_optimize_day)
+    # ========== 3-6. 핵심 최적화 로직 (_optimize_day) ==========
     def _optimize_day(self, places, restaurants, fixed_events, start_time_str, target_date_str, end_time_str=None, transport_mode="transport", selected_places=None):
         
         # 날짜 및 시간 설정
@@ -983,13 +1072,38 @@ class RouteOptimizerService:
         r5_times = self._get_r5py_matrix(nodes, r5_dep, transport_mode)
 
         time_matrix = [[0]*n for _ in range(n)]
+        
+        # [통계용] R5PY 실패 횟수 카운트
+        fallback_count = 0
+        
         for i in range(n):
             for j in range(n):
                 if i == j: continue
-                val = r5_times.get((i, j)) or self._travel_minutes(nodes[i], nodes[j])
-                if "fixed" in [nodes[i]["type"], nodes[j]["type"]]: val = max(val, 30)
-                if transport_mode == 'car': val += 15
+                
+                # [핵심 로직] R5PY 결과가 있으면 사용, 없으면 거리 비례 계산(Fallback)
+                val = r5_times.get((i, j))
+                
+                if val is None:
+                    # R5PY 실패 -> 직선 거리 기반 추정치 사용
+                    val = self._travel_minutes(nodes[i], nodes[j], transport_mode)
+                    
+                    # [패널티] 계산된 경로가 아니므로 불안정성을 감안하여 10% 정도 시간을 더 잡음 (선호도 낮춤)
+                    val = int(val * 1.1)
+                    fallback_count += 1
+                
+                # 고정 일정 사이의 이동은 최소 30분 보장 (물리적 이동 고려)
+                if "fixed" in [nodes[i]["type"], nodes[j]["type"]]: 
+                    val = max(val, 30)
+                    
+                # 차량 모드일 경우 주차/교통체증 여유 시간 추가
+                if transport_mode == 'car': 
+                    val += 15
+                    
+                # 전체적으로 20% 여유를 두어 빡빡한 일정 방지
                 time_matrix[i][j] = int(val * 1.2)
+                
+        if fallback_count > 0:
+            print(f"[{target_date_str}] 매트릭스 보정: {fallback_count}개 구간 풀백")
 
         # 타임 윈도우 설정
         l_s, l_e = 690, 840
@@ -1085,7 +1199,7 @@ class RouteOptimizerService:
         
         return result, final_nodes
 
-    # 3-7. Gemini AI 연동 및 외부 API
+    # ========== 3-7. Gemini AI 연동 및 외부 API ==========
     def _extract_json(self, text):
         if not text: raise ValueError("Gemini 응답이 비어있습니다.")
         text = text.strip()
@@ -1259,7 +1373,7 @@ class RouteOptimizerService:
                 "lat": best['lat'], "lng": best['lng'], "reason": "가장 가까운 거리의 대체 장소입니다."
             }
 
-    # 3-8. API 진입점 (generate_plan)
+    # ========== 3-8. API 진입점 (generate_plan) ==========
     def generate_plan(self, request: PlanGenerateRequest):
         total_start_time = time.time()
         if not self.is_initialized: self.initialize_resources()
