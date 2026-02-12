@@ -19,7 +19,7 @@ class Spot(Base):
     lat: Mapped[float] = mapped_column(Float, nullable=False)
     lng: Mapped[float] = mapped_column(Float, nullable=False)
 
-    visited_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    visited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     memo: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     tags: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
 

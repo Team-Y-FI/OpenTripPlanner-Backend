@@ -47,7 +47,7 @@ class RecordService:
                     category=place["category"],
                     lat=place["lat"],
                     lng=place["lng"],
-                    visited_at=it["visited_at"],
+                    visited_at=it.get("visited_at"),
                     memo=memo,
                 )
             )

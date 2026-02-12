@@ -14,7 +14,12 @@ class RecordRepository:
         return spots
 
     async def list_spots(self, user_id: str, q: str | None = None, category: str | None = None, limit: int = 20):
-        stmt = select(Spot).where(Spot.user_id == user_id).order_by(Spot.visited_at.desc()).limit(limit)
+        stmt = (
+            select(Spot)
+            .where(Spot.user_id == user_id)
+            .order_by(Spot.visited_at.desc().nulls_last())
+            .limit(limit)
+        )
         if q:
             like = f"%{q}%"
             stmt = stmt.where(or_(Spot.name.ilike(like), Spot.address.ilike(like)))
