@@ -44,7 +44,7 @@ async def upload_photos(
 
     def photo_out(p):
         exif = None
-        if p.exif_lat is not None and p.exif_lng is not None:
+        if p.exif_lat is not None or p.exif_lng is not None or p.taken_at:
             exif = {
                 "lat": p.exif_lat,
                 "lng": p.exif_lng,
@@ -89,7 +89,7 @@ async def get_upload_status(
 
     def photo_out(p):
         exif = None
-        if p.exif_lat is not None and p.exif_lng is not None:
+        if p.exif_lat is not None or p.exif_lng is not None or p.taken_at:
             exif = {
                 "lat": p.exif_lat,
                 "lng": p.exif_lng,
