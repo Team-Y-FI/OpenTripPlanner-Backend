@@ -1187,6 +1187,9 @@ class RouteOptimizerService:
             return None, 0
         
     def reoptimize_day(self, places, restaurants, fixed_events, start_time_str, target_date_str, end_time_str, transport_mode, selected_places):
+        if not self.is_initialized: 
+            self.initialize_resources()
+
         """외부 모듈(PlanService 등)에서 특정 날짜의 경로 최적화만 단독으로 재실행할 때 사용"""
         return self._optimize_day(
             places=places,
