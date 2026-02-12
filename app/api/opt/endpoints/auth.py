@@ -15,6 +15,9 @@ router = APIRouter(tags=["auth"])
 logger = logging.getLogger(__name__)
 
 REFRESH_COOKIE_NAME = "refresh_token"
+KAKAO_AUTH_URL = "https://kauth.kakao.com/oauth/authorize"
+KAKAO_TOKEN_URL = "https://kauth.kakao.com/oauth/token"
+KAKAO_ME_URL = "https://kapi.kakao.com/v2/user/me"
 
 
 class SendVerificationIn(BaseModel):
@@ -193,7 +196,11 @@ async def kakao_callback(
     res.set_cookie(
         key=REFRESH_COOKIE_NAME,
         value=tokens["refresh_token"],
-        **_refresh_cookie_params(),
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
     return res
 
@@ -224,6 +231,10 @@ async def kakao_token(body: KakaoTokenIn, response: Response, db: AsyncSession =
     response.set_cookie(
         key=REFRESH_COOKIE_NAME,
         value=tokens["refresh_token"],
-        **_refresh_cookie_params(),
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
     )
     return {"access_token": tokens["access_token"]}
