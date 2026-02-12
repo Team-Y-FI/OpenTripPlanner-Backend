@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 from google import genai
 
 from app.schemas.plan import PlanGenerateRequest
+from sqlalchemy import create_engine
+from app.core.config import settings
 
 # ============================================================
 # 1. 환경 설정 및 상수
@@ -76,7 +78,7 @@ DINNER_WINDOW = ("17:00", "20:00") # 저녁 식사 가능 시간대
 
 # [장소 유형별 기본 체류 시간] 단위: 분
 stay_time_map = {
-    "관광지": 90, "카페": 50, "음식점": 70,
+    "관광지": 90, "카페": 50, "음식점": 60,
     "박물관": 120, "공원": 60, "시장": 80, "숙박": 0
 }
 
@@ -226,12 +228,41 @@ class RouteOptimizerService:
         except Exception as e: print(f"인구 모델 로드 실패: {e}")
 
         # 2. 데이터 및 네트워크 로드
-        try:
-            if os.path.exists(PLACE_FILE):
+        self.df_places = None
+        data_loaded = False
+
+        # [DB 로드 시도]
+        if settings.PLACES_DATABASE_URL:
+            try:
+                db_url = settings.PLACES_DATABASE_URL.replace("+asyncpg", "+psycopg2")
+                print(f"PostgreSQL 연결 시도... (Driver: psycopg2)")
+                engine = create_engine(db_url)
+                
+                # 필요한 컬럼만 선택하여 로드 (테이블명 'places' 가정)
+                query = """
+                        SELECT name, category, category2, lat, lng, address 
+                        FROM public.places
+                        """
+                self.df_places = pd.read_sql(query, engine)
+                self.df_places = self.df_places.fillna("")
+                print(f"DB 장소 데이터 로드 성공: {len(self.df_places)}개")
+                data_loaded = True
+            except Exception as e:
+                print(f"DB 로드 실패: {e}")
+        
+        # [엑셀 폴백]
+        if not data_loaded and os.path.exists(PLACE_FILE):
+            try:
+                print(f"엑셀 파일 로드 시도: {PLACE_FILE}")
                 self.df_places = pd.read_excel(PLACE_FILE)
                 self.df_places = self.df_places.fillna("")
-                print(f"장소 데이터: {len(self.df_places)}개")
-        except: self.df_places = None
+                print(f"엑셀 장소 데이터 로드 성공: {len(self.df_places)}개")
+            except Exception as e:
+                print(f"엑셀 로드 실패: {e}")
+                self.df_places = None
+
+        if self.df_places is None:
+            print("경고: 장소 데이터를 로드하지 못했습니다.")
 
         if os.path.exists(TN_CACHE_PATH):
             try:
@@ -1002,7 +1033,7 @@ class RouteOptimizerService:
 
             inserted_cafe = False
 
-            if target_start_time and (target_start_time - expected_arrival >= 50) and not df_cafes.empty:
+            if target_start_time and (target_start_time - expected_arrival >= 30) and not df_cafes.empty:
                 gap_min = target_start_time - expected_arrival
 
                 if next_node.get('lat') and curr_node.get('lng'):
@@ -1013,22 +1044,22 @@ class RouteOptimizerService:
 
                     existing_names = set(n['name'] for n in final_nodes)
                     nearby_cafes = df_cafes[
-                        (df_cafes['temp_dist'] <= 0.5) & 
+                        (df_cafes['temp_dist'] <= 0.6) & 
                         (~df_cafes['name'].isin(existing_names))
                     ].sort_values('temp_dist')
 
                     if not nearby_cafes.empty:
                         cafe_row = nearby_cafes.iloc[0]
 
-                        safe_buffer = 25
+                        safe_buffer = 10
                         available_stay_time = gap_min - safe_buffer
-                        stay_for_cafe = min(available_stay_time, 50)
+                        stay_for_cafe = min(available_stay_time, 60)
 
                         cafe_arrival = curr_time_cursor + original_travel_min
                         cafe_departure = cafe_arrival + stay_for_cafe
-                        final_arrival_at_next = cafe_departure + 10
+                        final_arrival_at_next = cafe_departure + 5
 
-                        if stay_for_cafe >= 20 and (final_arrival_at_next <= target_start_time - 15):
+                        if stay_for_cafe >= 20 and (final_arrival_at_next <= target_start_time - 10):
                             cafe_node = {
                                 "id": 9999 + i,
                                 "name": cafe_row['name'],
@@ -1187,6 +1218,9 @@ class RouteOptimizerService:
             return None, 0
         
     def reoptimize_day(self, places, restaurants, fixed_events, start_time_str, target_date_str, end_time_str, transport_mode, selected_places):
+        if not self.is_initialized: 
+            self.initialize_resources()
+
         """외부 모듈(PlanService 등)에서 특정 날짜의 경로 최적화만 단독으로 재실행할 때 사용"""
         return self._optimize_day(
             places=places,
@@ -1231,7 +1265,7 @@ class RouteOptimizerService:
                     print(f"중심점 변경: 고정일정 기준 ({center['lat']}, {center['lng']})")
                     break
         
-        REDIUS = 8
+        REDIUS = 5  # km
         df = self.df_places.copy()
         df['dist'] = df.apply(lambda r: self._haversine(center['lat'], center['lng'], r['lat'], r['lng']), axis=1)
         
@@ -1283,22 +1317,45 @@ class RouteOptimizerService:
         if not plan: return {'error': 'AI 추천 실패'}
 
         # [핵심] Gemini 결과에 주소(address, addr) 강제 주입
-        name_to_addr = df.set_index("name")["address"].to_dict()
+        ref_df = self.df_places.set_index("name")
+        name_to_addr = ref_df["address"].to_dict()
+        name_to_lat = ref_df["lat"].to_dict()
+        name_to_lng = ref_df["lng"].to_dict()
+        name_to_cat = ref_df["category"].to_dict()
 
         for day_key, day_plan in plan['plans'].items():
             if 'route' in day_plan:
                 for item in day_plan['route']:
-                    item['addr'] = name_to_addr.get(item['name'], "")
+                    name = item['name']
+                    # [핵심] DB에 있는 정확한 좌표로 덮어쓰기
+                    if name in name_to_lat:
+                        item['lat'] = name_to_lat[name]
+                        item['lng'] = name_to_lng[name]
+                        item['category'] = name_to_cat.get(name, item.get('category')) # 카테고리 보정
+                    
+                    item['addr'] = name_to_addr.get(name, "")
                     item['type'] = 'spot'
             
             if 'restaurants' in day_plan:
                 for item in day_plan['restaurants']:
-                    item['addr'] = name_to_addr.get(item['name'], "")
-                    item['type'] = 'restaurant' # _build_nodes에서 점심/저녁으로 나눔
+                    name = item['name']
+                    # 식당 좌표도 덮어쓰기
+                    if name in name_to_lat:
+                        item['lat'] = name_to_lat[name]
+                        item['lng'] = name_to_lng[name]
+                    
+                    item['addr'] = name_to_addr.get(name, "")
+                    item['type'] = 'restaurant'
 
             if 'accommodations' in day_plan:
                 for item in day_plan['accommodations']:
-                    item['addr'] = name_to_addr.get(item['name'], "")
+                    name = item['name']
+                    # 식당 좌표도 덮어쓰기
+                    if name in name_to_lat:
+                        item['lat'] = name_to_lat[name]
+                        item['lng'] = name_to_lng[name]
+                    
+                    item['addr'] = name_to_addr.get(name, "")
                     item['type'] = 'accommodation'
 
         # 4. 최적화 루프

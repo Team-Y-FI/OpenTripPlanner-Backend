@@ -235,7 +235,9 @@ class PlanService:
             # 분류 로직
             if node.get('type') == 'fixed':
                 daily_fixed_events.append(node)
-            elif node.get('type') in ['lunch', 'dinner']:
+            elif node.get('type') in ['lunch', 'dinner', 'restaurant']:
+                node.pop('window', None)
+                node.pop('orig_time_str', None)
                 only_restaurants.append(node)
             else:
                 only_places.append(node)

@@ -47,3 +47,4 @@ pillow-heif==0.20.0
 
 #
 email-validator==2.1.1
+psycopg2-binary
