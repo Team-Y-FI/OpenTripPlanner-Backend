@@ -1128,7 +1128,7 @@ class RouteOptimizerService:
                 inserted = False
 
                 # 30분 이상 시간이 남고 카페 데이터가 있다면
-                if gap >= 30 and not df_cafes.empty:
+                if gap >= 50 and not df_cafes.empty:
                     # 거리 계산 및 가까운 카페 찾기 (0.6km 이내)
                     last_lat, last_lng = final_nodes[-1]['lat'], final_nodes[-1]['lng']
                     
@@ -1146,11 +1146,11 @@ class RouteOptimizerService:
                     if not candidates.empty:
                         cafe = candidates.iloc[0] # 목적지와 가장 가까운 카페 선택
                         
-                        walk_min_to_next = int(cafe['dist_to_next'] / 4 * 60) + 5 
+                        walk_min_to_next = int(cafe['dist_to_next'] / 4 * 60) + 10
                         
-                        stay_time = min(gap - walk_min_to_next - 5, 60) 
+                        stay_time = min(gap - walk_min_to_next - 5, 60)
                         
-                        if stay_time >= 20: # 최소 20분 이상 앉아있을 수 있다면 추가
+                        if stay_time >= 25: # 최소 20분 이상 앉아있을 수 있다면 추가
                             cafe_node = {
                                 "id": 9900 + i,
                                 "name": cafe['name'],
