@@ -504,9 +504,16 @@ class RouteOptimizerService:
         valid_nodes = [n for n in nodes if n.get('lat') is not None]
         if len(valid_nodes) < 2: return {}
         gdf = gpd.GeoDataFrame(valid_nodes, geometry=gpd.points_from_xy([n['lng'] for n in valid_nodes], [n['lat'] for n in valid_nodes]), crs='EPSG:4326')
+        # 모드에 따라 CAR 또는 WALK/TRANSIT 선택
         modes = [TransportMode.CAR] if transport_mode == "car" else [TransportMode.WALK, TransportMode.TRANSIT]
         try:
-            matrix = TravelTimeMatrix(self.transport_network, origins=gdf, destinations=gdf, departure=departure_time, transport_modes=modes)
+            matrix = TravelTimeMatrix(
+                self.transport_network,
+                origins=gdf,
+                destinations=gdf,
+                departure=departure_time,
+                transport_modes=modes
+            )
             r5_travel_times = {}
             for row in matrix.itertuples():
                 if not pd.isna(row.travel_time):
@@ -530,17 +537,29 @@ class RouteOptimizerService:
         if not trip_legs: return {}
         path_map = {}
 
-        # 차량 모드 (단순 계산)
+        # 차량 모드 (r5py 결과 우선 사용 -> 실패 시 Fallback)
         if transport_mode == "car":
             for s, e in trip_legs:
                 if s['id'] == e['id']: continue
+                
                 est_min = 0
+                path_text = ""
+
+                # [1순위] r5py 매트릭스에 값이 있으면 사용 (도로망 기준 정확한 시간)
                 if cached_times and (s['id'], e['id']) in cached_times:
                     est_min = cached_times[(s['id'], e['id'])]
+                    path_text = f"승용차 이동 : {est_min}분"
+                
+                # [2순위] 값이 없으면 직선 거리 공식 사용 (Fallback)
                 else:
                     est_min = self._travel_minutes(s, e, "car")
-                path_text = f"승용차 이동 : {est_min}분"
-                path_map[(s['id'], e['id'])] = {"fastest": [path_text], "min_transfer": [path_text]}
+                    path_text = f"승용차 이동 : {est_min}분 (거리 비례)"
+                
+                # 상세 경로는 필요 없으므로 텍스트만 저장
+                path_map[(s['id'], e['id'])] = {
+                    "fastest": [path_text], 
+                    "min_transfer": [path_text]
+                }
             return path_map
 
         # 대중교통 모드 (R5PY DetailedItineraries)
@@ -648,9 +667,6 @@ class RouteOptimizerService:
                         display_route_name = self.route_id_to_name.get(route_key, "대중교통")
 
                     segs.append(f"[{mode_nm}][{display_route_name}] : {f_name} → {t_name} : {ride_time}분")
-            
-            if is_rescue:
-                segs.append("(인근 정류장 대체)")
                 
             return segs
 
@@ -733,7 +749,7 @@ class RouteOptimizerService:
             except Exception as e:
                 print(f"[Rescue Fail] 재계산 오류: {e}")
                 
-            # 여전히 실패한 구간은 Fallback 처리
+            # [3차 최후통첩] 여전히 실패한 구간은 직선 거리 비례 시간으로 Fallback
             for s, e in trip_legs:
                 if s['id'] != e['id'] and (s['id'], e['id']) not in path_map:
                     path_map[(s['id'], e['id'])] = {
@@ -959,26 +975,47 @@ class RouteOptimizerService:
             if path_opts:
                 chosen = path_opts.get('fastest' if transport_mode == "car" else path_type, [])
                 for seg in chosen:
-                    s_min = sum(int(m) for m in re.findall(r'(\d+)분', seg))
-                    added, tag = 0, ""
+                    # 시간 추출 (숫자+분 패턴)
+                    found_times = re.findall(r'(\d+)분', seg)
+                    s_min = sum(int(m) for m in found_times)
+                    
+                    added = 0
+                    tag = ""
+                    
+                    is_car = "승용차" in seg
+                    is_bus = "버스" in seg
                     
                     if "대기" in seg:
                         origin_lvl = self._get_traffic_level(prev.get('lat'), prev.get('lng'), cursor_dt)
                         added = math.ceil(s_min * self._get_wait_weight(origin_lvl)) - s_min
                         tag = f" [{ICONS.get(origin_lvl)}혼잡 (+{added}분)]" if added > 0 else f" [{ICONS.get(origin_lvl)}혼잡]"
-                    elif any(m in seg for m in ["승용차", "버스"]):
-                        added = math.ceil(s_min * self._get_travel_time_weight(dest_traffic_lvl, "car" if "승용차" in seg else "bus")) - s_min
-                        if transport_mode == "car": added += 12
+                    # [버스/승용차] 로직
+                    elif is_car or is_bus:
+                        weight = self._get_travel_time_weight(dest_traffic_lvl, "car" if is_car else "bus")
+                        added = math.ceil(s_min * weight) - s_min
+                        
+                        if is_car: added += 12
+
                         t_txt = LVL_TXT.get(dest_traffic_lvl, "서행")
-                        tag = f" [{ICONS.get(dest_traffic_lvl)}{t_txt} (+{added}분)]" if added > 0 else f" [{ICONS.get(dest_traffic_lvl)}{t_txt}]"
-                        if transport_mode == "car": tag += " [주차/도보 +12분]"
+                        
+                        if added > 0:
+                            tag = f" [{ICONS.get(dest_traffic_lvl)}{t_txt} (+{added}분)]"
+                        else:
+                            tag = f" [{ICONS.get(dest_traffic_lvl)}{t_txt}]"
+
+                        if is_car: tag += " [주차/도보 +12분]"
 
                     real_m = s_min + added
                     cur_travel_m += real_m
-                    transit_info.append(re.sub(r'\d+분', f'{real_m}분', seg) + tag)
+                    
+                    if found_times:
+                        new_seg = re.sub(r'(\d+)분', f'{real_m}분', seg) + tag
+                        transit_info.append(new_seg)
+                    else:
+                        transit_info.append(seg + tag)
             else: 
                 cur_travel_m = self._travel_minutes(prev, node, transport_mode)
-                transit_info.append(f"이동 : {cur_travel_m}분 (정보없음)")
+                transit_info.append(f"이동 : {cur_travel_m}분")
             
             arrival_dt = cursor_dt + timedelta(minutes=cur_travel_m)
 
