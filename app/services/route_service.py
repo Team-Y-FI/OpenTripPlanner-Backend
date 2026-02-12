@@ -1313,6 +1313,110 @@ class RouteOptimizerService:
             transport_mode=transport_mode,
             selected_places=selected_places
         )
+    
+    def get_alternative_spot(self, original_name: str, lat: float, lng: float, category: str):
+
+        if not self.is_initialized:
+            self.initialize_resources()
+
+        if self.df_places is None:
+            return None
+        
+        # 1. 후보군 필터링 (거리 800m 이내 & 같은 카테고리 & 본인 제외)
+        candidates = self.df_places[
+            (self.df_places['category'] == category) & 
+            (self.df_places['name'] != original_name)
+        ].copy()
+
+        if candidates.empty:
+            return None
+        
+        candidates['dist'] = candidates.apply(
+            lambda r: self._haversine(lat, lng, r['lat'], r['lng']), 
+            axis=1
+        )
+
+        # 800m (0.8km) 이내 필터링
+        nearby_candidates = candidates[candidates['dist'] <= 0.8].sort_values('dist')
+
+        if nearby_candidates.empty:
+            nearby_candidates = candidates[candidates['dist'] <= 1.2].sort_values('dist')
+            if nearby_candidates.empty:
+                return None
+            
+        top_candidates = nearby_candidates.head(5).to_dict('records')
+
+        # [DEBUG] 후보군 확인
+        print(f"    [RouteService] Candidates for '{original_name}' (Radius 800m):")
+        for c in top_candidates:
+            print(f"      - {c['name']} ({int(c['dist']*1000)}m)")
+
+        # 2. Gemini에게 추천 요청
+        if not self.api_key:
+            # API 키 없으면 단순히 가장 가까운 곳 반환
+            best = top_candidates[0]
+            return {
+                "name": best['name'],
+                "category": best['category'],
+                "lat": best['lat'],
+                "lng": best['lng'],
+                "reason": "원래 장소와 가장 가까운 대체 장소입니다."
+            }
+
+        try:
+            client = genai.Client(api_key=self.api_key)
+            
+            candidate_list_text = "\n".join([
+                f"- {c['name']} (거리: {int(c['dist']*1000)}m)" 
+                for c in top_candidates
+            ])
+            
+            prompt = f"""
+            여행 계획 중 '{original_name}'({category})을(를) 대신할 장소를 찾고 있습니다.
+            
+            [후보 목록 (반경 800m 내)]
+            {candidate_list_text}
+            
+            [요청사항]
+            1. 위 후보 중 여행자에게 가장 매력적인 곳을 하나만 선택하세요.
+            2. 선택한 장소의 이름과, 그곳을 추천하는 이유를 한국어 1문장으로 작성하세요.
+            3. 응답은 반드시 다음 JSON 형식으로만 주세요:
+            {{"name": "선택한장소이름", "reason": "추천이유"}}
+            """
+            
+            response = client.models.generate_content(
+                model="gemini-2.5-flash-lite", 
+                contents=prompt
+            )
+            
+            result = self._extract_json(response.text)
+            target_name = result.get('name')
+            reason = result.get('reason', "추천 장소입니다.")
+            
+            # 선택된 장소의 상세 정보 찾기
+            selected_spot = next((c for c in top_candidates if c['name'] == target_name), top_candidates[0])
+            
+            return {
+                "name": selected_spot['name'],
+                "category": selected_spot['category'],
+                "category2": selected_spot.get('category2', ''),
+                "lat": selected_spot['lat'],
+                "lng": selected_spot['lng'],
+                "reason": reason
+            }
+
+        except Exception as e:
+            print(f"Gemini 추천 실패: {e}")
+            # 실패 시 1순위 반환
+            best = top_candidates[0]
+            return {
+                "name": best['name'],
+                "category": best['category'],
+                "category2": best.get('category2', ''),
+                "lat": best['lat'],
+                "lng": best['lng'],
+                "reason": "가장 가까운 거리의 대체 장소입니다."
+            }
 
     def generate_plan(self, request: PlanGenerateRequest):
 

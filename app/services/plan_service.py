@@ -416,3 +416,53 @@ class PlanService:
             "route": timeline_ordered_route, 
             "timelines": timelines
         }
+    
+    # 대체 장소 추천 (DB 조회 -> 좌표 확인 -> RouteService 호출)
+    async def recommend_alternative_spots(self, user_id: str, plan_id: str, day: str, spot_names: list, categories: list = None, region: str = None):
+
+        # [DEBUG] 요청 로그
+        print(f"\n{'='*10} [Backend: Spot Replacement Request] {'='*10}")
+        print(f"User: {user_id}, Plan: {plan_id}, Day: {day}")
+        print(f"Target Spots to Replace: {spot_names}")
+
+        # 1. 기존 플랜 조회 (좌표 정보를 얻기 위해)
+        plan = await self.repo.get_plan(user_id, plan_id)
+        if not plan:
+            raise AppError("plan_not_found", "플랜을 찾을 수 없습니다.", 404)
+            
+        variants = plan.variants_json or {}
+        day_plan = variants.get(day)
+        if not day_plan:
+            raise AppError("invalid_day", "해당 날짜의 일정이 없습니다.", 400)
+
+        # 2. 타임라인/루트에서 대상 장소 정보 찾기
+        target_spots = []
+        # route, restaurants, accommodations 모든 리스트 검색
+        all_items = day_plan.get('route', []) + day_plan.get('restaurants', []) + day_plan.get('accommodations', [])
+        
+        for name in spot_names:
+            # 이름으로 매칭 (정확도 향상을 위해 정규화 가능)
+            found = next((item for item in all_items if item.get('name') == name), None)
+            if found:
+                target_spots.append(found)
+        
+        if not target_spots:
+            raise AppError("spot_not_found", "요청한 장소를 일정에서 찾을 수 없습니다.", 404)
+
+        # 3. RouteService를 통해 대체 장소 탐색
+        alternatives = []
+        for spot in target_spots:
+            rec = route_service.get_alternative_spot(
+                original_name=spot['name'],
+                lat=spot['lat'],
+                lng=spot['lng'],
+                category=spot['category']
+            )
+            if rec:
+                print(f"  < Recommended: {rec['name']} (Reason: {rec.get('reason')})")
+                alternatives.append(rec)
+            else:
+                print(f"  < No alternative found for {spot['name']}")
+        print(f"{'='*60}\n")
+        
+        return alternatives
