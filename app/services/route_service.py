@@ -1002,7 +1002,7 @@ class RouteOptimizerService:
 
             inserted_cafe = False
 
-            if target_start_time and (target_start_time - expected_arrival >= 50) and not df_cafes.empty:
+            if target_start_time and (target_start_time - expected_arrival >= 40) and not df_cafes.empty:
                 gap_min = target_start_time - expected_arrival
 
                 if next_node.get('lat') and curr_node.get('lng'):
@@ -1020,9 +1020,9 @@ class RouteOptimizerService:
                     if not nearby_cafes.empty:
                         cafe_row = nearby_cafes.iloc[0]
 
-                        safe_buffer = 25
+                        safe_buffer = 20
                         available_stay_time = gap_min - safe_buffer
-                        stay_for_cafe = min(available_stay_time, 50)
+                        stay_for_cafe = min(available_stay_time, 60)
 
                         cafe_arrival = curr_time_cursor + original_travel_min
                         cafe_departure = cafe_arrival + stay_for_cafe
@@ -1231,7 +1231,7 @@ class RouteOptimizerService:
                     print(f"중심점 변경: 고정일정 기준 ({center['lat']}, {center['lng']})")
                     break
         
-        REDIUS = 8
+        REDIUS = 5  # km
         df = self.df_places.copy()
         df['dist'] = df.apply(lambda r: self._haversine(center['lat'], center['lng'], r['lat'], r['lng']), axis=1)
         
