@@ -73,8 +73,8 @@ SEOUL_GU_COORDS = {
 FALLBACK_MOVE_MIN = 30         # 경로 탐색 실패 시 기본 적용할 이동 시간(분)
 MAX_TRANSFERS = 2              # 최대 환승 횟수 허용치
 MAX_TRAVEL_TIME_MIN = 80      # 장소 간 최대 허용 이동 시간(분)
-LUNCH_WINDOW = ("11:00", "14:00")  # 점심 식사 가능 시간대
-DINNER_WINDOW = ("17:00", "20:00") # 저녁 식사 가능 시간대
+LUNCH_WINDOW = ("11:30", "13:40")  # 점심 식사 가능 시간대
+DINNER_WINDOW = ("17:30", "19:40") # 저녁 식사 가능 시간대
 
 # [장소 유형별 기본 체류 시간] 단위: 분
 stay_time_map = {
@@ -1337,14 +1337,14 @@ class RouteOptimizerService:
         )
 
         # 800m (0.8km) 이내 필터링
-        nearby_candidates = candidates[candidates['dist'] <= 0.8].sort_values('dist')
+        nearby_candidates = candidates[candidates['dist'] <= 1.0].sort_values('dist')
 
         if nearby_candidates.empty:
             nearby_candidates = candidates[candidates['dist'] <= 1.2].sort_values('dist')
             if nearby_candidates.empty:
                 return None
             
-        top_candidates = nearby_candidates.head(5).to_dict('records')
+        top_candidates = nearby_candidates.sample(n=6).to_dict('records')
 
         # [DEBUG] 후보군 확인
         print(f"    [RouteService] Candidates for '{original_name}' (Radius 800m):")
