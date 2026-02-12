@@ -36,6 +36,17 @@ class PlanRepository:
         )
         return list(res.scalars().all())
 
+    async def list_saved_plans_with_plans(self, user_id: str, limit: int = 50):
+        stmt = (
+            select(SavedPlan, Plan)
+            .join(Plan, Plan.plan_id == SavedPlan.plan_id)
+            .where(SavedPlan.user_id == user_id)
+            .order_by(SavedPlan.created_at.desc())
+            .limit(limit)
+        )
+        res = await self.db.execute(stmt)
+        return list(res.all())
+
     async def create_plan_spot_links(self, saved_plan_id: str, spot_ids: list[str]):
         if not spot_ids:
             return

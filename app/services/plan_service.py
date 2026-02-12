@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta
+import math
+import re
 from app.core.exceptions import AppError
 
 # [핵심] 우리가 만든 Route Service 및 스키마 임포트
@@ -10,7 +12,90 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 from app.models.plan import Plan, SavedPlan
 from app.repositories.plan_repo import PlanRepository
-from typing import List, Optional
+from typing import Iterable, List, Optional
+
+def _coerce_float(value) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_text(value: str | None) -> str:
+    if not value:
+        return ""
+    return re.sub(r"\s+", "", value).strip().lower()
+
+
+def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    r = 6371000.0
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    d_phi = math.radians(lat2 - lat1)
+    d_lambda = math.radians(lng2 - lng1)
+    a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return r * c
+
+
+def _coords_close(lat1: float | None, lng1: float | None, lat2: float | None, lng2: float | None, max_m: float) -> bool:
+    if lat1 is None or lng1 is None or lat2 is None or lng2 is None:
+        return False
+    try:
+        return _haversine_m(lat1, lng1, lat2, lng2) <= max_m
+    except Exception:
+        return False
+
+
+def _iter_day_plans(variants: dict) -> Iterable[dict]:
+    if not isinstance(variants, dict):
+        return []
+    if any(k in variants for k in ("route", "restaurants", "accommodations")):
+        yield variants
+        return
+    plans = variants.get("plans")
+    if isinstance(plans, dict):
+        for day in plans.values():
+            if isinstance(day, dict):
+                yield from _iter_day_plans(day)
+    for key, val in variants.items():
+        if key == "summary":
+            continue
+        if isinstance(val, dict):
+            yield from _iter_day_plans(val)
+
+
+def _spot_matches_item(item: dict, spot_name: str, spot_addr: str, spot_lat: float | None, spot_lng: float | None) -> bool:
+    item_lat = _coerce_float(item.get("lat"))
+    item_lng = _coerce_float(item.get("lng"))
+    if _coords_close(spot_lat, spot_lng, item_lat, item_lng, max_m=120.0):
+        return True
+
+    item_name = item.get("name")
+    if item_name and spot_name:
+        if _normalize_text(item_name) == _normalize_text(spot_name):
+            return True
+
+    item_addr = item.get("addr") or item.get("address")
+    if item_addr and spot_addr:
+        norm_item_addr = _normalize_text(item_addr)
+        norm_spot_addr = _normalize_text(spot_addr)
+        if norm_item_addr and norm_spot_addr and (norm_item_addr in norm_spot_addr or norm_spot_addr in norm_item_addr):
+            return True
+
+    return False
+
+
+def _plan_contains_spot(variants: dict, spot_name: str, spot_addr: str, spot_lat: float | None, spot_lng: float | None) -> bool:
+    for day in _iter_day_plans(variants):
+        for key in ("route", "restaurants", "accommodations"):
+            items = day.get(key) or []
+            if isinstance(items, list):
+                for item in items:
+                    if isinstance(item, dict) and _spot_matches_item(item, spot_name, spot_addr, spot_lat, spot_lng):
+                        return True
+    return False
+
 
 class PlanService:
     def __init__(self, db):
@@ -194,9 +279,45 @@ class PlanService:
         if not deleted:
             raise AppError("saved_plan_not_found", f"Saved plan not found: {saved_plan_id}", 404)
 
-    async def list_saved_plans_by_spot(self, user_id: str, spot_id: str, limit: int = 20):
-        """특정 장소와 연결된 저장된 플랜 목록 조회"""
-        return await self.repo.list_saved_plans_by_spot(user_id, spot_id, limit=limit)
+    async def list_saved_plans_by_spot(
+        self,
+        user_id: str,
+        spot_id: str,
+        limit: int = 20,
+        spot_name: str | None = None,
+        spot_address: str | None = None,
+        spot_lat: float | None = None,
+        spot_lng: float | None = None,
+    ):
+        """특정 장소와 연결된 저장된 플랜 목록 조회 (직접 링크 + 코스 포함 추정)"""
+        linked = await self.repo.list_saved_plans_by_spot(user_id, spot_id, limit=limit)
+        if len(linked) >= limit:
+            return linked
+
+        spot_name = spot_name or ""
+        spot_address = spot_address or ""
+        spot_lat = _coerce_float(spot_lat)
+        spot_lng = _coerce_float(spot_lng)
+
+        # spot 정보가 없으면 직접 링크만 반환
+        if not spot_name and spot_lat is None and spot_lng is None and not spot_address:
+            return linked
+
+        seen_plan_ids = {s.plan_id for s in linked}
+        scan_limit = max(limit * 5, 50)
+        pairs = await self.repo.list_saved_plans_with_plans(user_id, limit=scan_limit)
+        extra = []
+        for saved, plan in pairs:
+            if saved.plan_id in seen_plan_ids:
+                continue
+            variants = plan.variants_json or {}
+            if _plan_contains_spot(variants, spot_name, spot_address, spot_lat, spot_lng):
+                extra.append(saved)
+                seen_plan_ids.add(saved.plan_id)
+                if len(linked) + len(extra) >= limit:
+                    break
+
+        return linked + extra
 
     async def recalculate_route(self, user_id: str, plan_id: str, day_key: str, remaining_places: list):
         # 1. DB에서 기존 플랜 조회
