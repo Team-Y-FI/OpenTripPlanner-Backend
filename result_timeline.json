@@ -2,48 +2,6 @@
   "day1": {
     "route": [
       {
-        "name": "카페",
-        "category": "고정일정",
-        "category2": "고정일정",
-        "lat": 37.5545459702199,
-        "lng": 126.903763073379,
-        "addr": "서울 마포구 희우정로16길 32",
-        "type": "fixed",
-        "stay": 80,
-        "window": [
-          580,
-          605
-        ],
-        "orig_time_str": "10:00 - 11:20"
-      },
-      {
-        "name": "산띠",
-        "category": "음식점",
-        "category2": "외국식",
-        "lat": 37.555532344,
-        "lng": 126.9249762108,
-        "addr": "서울특별시 마포구 와우산로27길 70",
-        "type": "lunch",
-        "stay": 70,
-        "window": null,
-        "orig_time_str": ""
-      },
-      {
-        "name": "홍대",
-        "category": "관광지",
-        "category2": "기타체험",
-        "lat": 37.5550518109,
-        "lng": 126.9231152827,
-        "addr": "서울특별시 마포구 서교동",
-        "type": "spot",
-        "stay": 90,
-        "window": [
-          0,
-          1440
-        ],
-        "orig_time_str": ""
-      },
-      {
         "name": "홍대 벽화거리",
         "category": "관광지",
         "category2": "도시/지역문화관광",
@@ -80,6 +38,60 @@
         "lat": 37.5507966992,
         "lng": 126.9202489975,
         "addr": "서울특별시 마포구 서교동 395-17",
+        "type": "lunch",
+        "stay": 70,
+        "window": null,
+        "orig_time_str": ""
+      },
+      {
+        "name": "비하인드(B-hind)",
+        "category": "틈새 카페",
+        "category2": "카페",
+        "lat": 37.5492913074,
+        "lng": 126.9196546499,
+        "addr": "",
+        "type": "gap_filler",
+        "stay": 35,
+        "window": null,
+        "orig_time_str": ""
+      },
+      {
+        "name": "운동",
+        "category": "고정일정",
+        "category2": "고정일정",
+        "lat": 37.5575471318329,
+        "lng": 126.908213840628,
+        "addr": "서울 마포구 월드컵로23길 4",
+        "type": "fixed",
+        "stay": 100,
+        "window": [
+          940,
+          965
+        ],
+        "orig_time_str": "16:00 - 17:40"
+      },
+      {
+        "name": "브래디스커피",
+        "category": "카페",
+        "category2": "카페",
+        "lat": 37.5662310296,
+        "lng": 126.9209984936,
+        "addr": "서울특별시 마포구 성미산로23안길 23",
+        "type": "spot",
+        "stay": 50,
+        "window": [
+          0,
+          1440
+        ],
+        "orig_time_str": ""
+      },
+      {
+        "name": "툭툭누들타이",
+        "category": "음식점",
+        "category2": "외국식",
+        "lat": 37.565170096,
+        "lng": 126.9240204706,
+        "addr": "서울특별시 마포구 성미산로 161-82층",
         "type": "dinner",
         "stay": 70,
         "window": null,
@@ -138,47 +150,11 @@
     "timelines": {
       "fastest_version": [
         {
-          "name": "카페",
-          "category": "고정일정",
-          "category2": "고정일정",
-          "time": "10:00 - 11:20",
-          "transit_to_here": [],
-          "population_level": "고정일정",
-          "traffic_level": "교통 정체🔴"
-        },
-        {
-          "name": "산띠",
-          "category": "음식점",
-          "category2": "외국식",
-          "time": "11:51 - 13:19 [🔴혼잡 (+18분)]",
-          "transit_to_here": [
-            "도보 : 6분",
-            "대기 : 3분 [🔴혼잡 (+1분)]",
-            "[버스][7011] : 서서울농협 → 삼진제약 : 15분 [🔴정체 (+6분)]",
-            "도보 : 7분"
-          ],
-          "population_level": "인구 혼잡🔴",
-          "traffic_level": "교통 정체🔴"
-        },
-        {
-          "name": "홍대",
-          "category": "관광지",
-          "category2": "기타체험",
-          "time": "13:23 - 15:03 [🟡보통 (+10분)]",
-          "transit_to_here": [
-            "도보 : 4분"
-          ],
-          "population_level": "인구 보통🟡",
-          "traffic_level": "교통 정체🔴"
-        },
-        {
           "name": "홍대 벽화거리",
           "category": "관광지",
           "category2": "도시/지역문화관광",
-          "time": "15:11 - 17:04 [🔴혼잡 (+23분)]",
-          "transit_to_here": [
-            "도보 : 8분"
-          ],
+          "time": "10:00 - 11:53 [🔴혼잡 (+23분)]",
+          "transit_to_here": [],
           "population_level": "인구 혼잡🔴",
           "traffic_level": "교통 정체🔴"
         },
@@ -186,7 +162,7 @@
           "name": "홍익문화공원",
           "category": "관광지",
           "category2": "도시공원",
-          "time": "17:07 - 19:00 [🔴혼잡 (+23분)]",
+          "time": "11:56 - 13:49 [🔴혼잡 (+23분)]",
           "transit_to_here": [
             "도보 : 3분"
           ],
@@ -197,57 +173,71 @@
           "name": "하하&김종국의 401정육식당",
           "category": "음식점",
           "category2": "한식",
-          "time": "19:07 - 20:35 [🔴혼잡 (+18분)]",
+          "time": "13:56 - 15:24 [🔴혼잡 (+18분)]",
           "transit_to_here": [
             "도보 : 7분"
           ],
           "population_level": "인구 혼잡🔴",
           "traffic_level": "교통 정체🔴"
+        },
+        {
+          "name": "비하인드(B-hind)",
+          "category": "틈새 카페",
+          "category2": "카페",
+          "time": "15:28 - 16:12 [🔴혼잡 (+9분)]",
+          "transit_to_here": [
+            "도보 : 4분"
+          ],
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 정체🔴"
+        },
+        {
+          "name": "운동",
+          "category": "고정일정",
+          "category2": "고정일정",
+          "time": "16:00 - 17:40",
+          "transit_to_here": [
+            "도보 : 22분"
+          ],
+          "population_level": "고정일정",
+          "traffic_level": "교통 정체🔴"
+        },
+        {
+          "name": "브래디스커피",
+          "category": "카페",
+          "category2": "카페",
+          "time": "18:14 - 19:10 [🟡보통 (+6분)]",
+          "transit_to_here": [
+            "도보 : 2분",
+            "대기 : 6분 [🔴혼잡 (+2분)]",
+            "[버스][271, N72] : 망원시장.망원동월드컵시장입구 → 마포구청.성산자동차검사소 : 5분 [🟡서행 (+2분)]",
+            "도보 : 3분",
+            "대기 : 3분 [🔴혼잡 (+1분)]",
+            "[버스][710] : 마포구청 → 연희104고지앞.구성산회관 : 6분 [🟡서행 (+2분)]",
+            "도보 : 9분"
+          ],
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 서행🟡"
+        },
+        {
+          "name": "툭툭누들타이",
+          "category": "음식점",
+          "category2": "외국식",
+          "time": "19:16 - 20:33 [🟡보통 (+7분)]",
+          "transit_to_here": [
+            "도보 : 6분"
+          ],
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 서행🟡"
         }
       ],
       "min_transfer_version": [
         {
-          "name": "카페",
-          "category": "고정일정",
-          "category2": "고정일정",
-          "time": "10:00 - 11:20",
-          "transit_to_here": [],
-          "population_level": "고정일정",
-          "traffic_level": "교통 정체🔴"
-        },
-        {
-          "name": "산띠",
-          "category": "음식점",
-          "category2": "외국식",
-          "time": "11:51 - 13:19 [🔴혼잡 (+18분)]",
-          "transit_to_here": [
-            "도보 : 6분",
-            "대기 : 3분 [🔴혼잡 (+1분)]",
-            "[버스][7011] : 서서울농협 → 삼진제약 : 15분 [🔴정체 (+6분)]",
-            "도보 : 7분"
-          ],
-          "population_level": "인구 혼잡🔴",
-          "traffic_level": "교통 정체🔴"
-        },
-        {
-          "name": "홍대",
-          "category": "관광지",
-          "category2": "기타체험",
-          "time": "13:23 - 15:03 [🟡보통 (+10분)]",
-          "transit_to_here": [
-            "도보 : 4분"
-          ],
-          "population_level": "인구 보통🟡",
-          "traffic_level": "교통 정체🔴"
-        },
-        {
           "name": "홍대 벽화거리",
           "category": "관광지",
           "category2": "도시/지역문화관광",
-          "time": "15:11 - 17:04 [🔴혼잡 (+23분)]",
-          "transit_to_here": [
-            "도보 : 8분"
-          ],
+          "time": "10:00 - 11:53 [🔴혼잡 (+23분)]",
+          "transit_to_here": [],
           "population_level": "인구 혼잡🔴",
           "traffic_level": "교통 정체🔴"
         },
@@ -255,7 +245,7 @@
           "name": "홍익문화공원",
           "category": "관광지",
           "category2": "도시공원",
-          "time": "17:07 - 19:00 [🔴혼잡 (+23분)]",
+          "time": "11:56 - 13:49 [🔴혼잡 (+23분)]",
           "transit_to_here": [
             "도보 : 3분"
           ],
@@ -266,12 +256,56 @@
           "name": "하하&김종국의 401정육식당",
           "category": "음식점",
           "category2": "한식",
-          "time": "19:07 - 20:35 [🔴혼잡 (+18분)]",
+          "time": "13:56 - 15:24 [🔴혼잡 (+18분)]",
           "transit_to_here": [
             "도보 : 7분"
           ],
           "population_level": "인구 혼잡🔴",
           "traffic_level": "교통 정체🔴"
+        },
+        {
+          "name": "비하인드(B-hind)",
+          "category": "틈새 카페",
+          "category2": "카페",
+          "time": "15:28 - 16:12 [🔴혼잡 (+9분)]",
+          "transit_to_here": [
+            "도보 : 4분"
+          ],
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 정체🔴"
+        },
+        {
+          "name": "운동",
+          "category": "고정일정",
+          "category2": "고정일정",
+          "time": "16:00 - 17:40",
+          "transit_to_here": [
+            "도보 : 22분"
+          ],
+          "population_level": "고정일정",
+          "traffic_level": "교통 정체🔴"
+        },
+        {
+          "name": "브래디스커피",
+          "category": "카페",
+          "category2": "카페",
+          "time": "18:11 - 19:07 [🟡보통 (+6분)]",
+          "transit_to_here": [
+            "도보 : 31분"
+          ],
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 서행🟡"
+        },
+        {
+          "name": "툭툭누들타이",
+          "category": "음식점",
+          "category2": "외국식",
+          "time": "19:13 - 20:30 [🟡보통 (+7분)]",
+          "transit_to_here": [
+            "도보 : 6분"
+          ],
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 서행🟡"
         }
       ]
     }

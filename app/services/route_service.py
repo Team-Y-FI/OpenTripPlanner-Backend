@@ -98,16 +98,25 @@ class SimpleRouteSolver:
         self.best_cost = float('inf')
         self.best_score = -1
         self.best_arrival_times = {}
+        
+        # [NEW] 우선순위 비교를 위한 카운트 변수들
+        self.best_fixed_cnt = -1
+        self.best_selected_cnt = -1
 
     def solve(self):
-        # 1. 최적 결과 저장 변수 초기화
+        # 1. 초기화
         self.best_path = []
         self.best_cost = float('inf')
         self.best_score = -1
         self.best_arrival_times = {}
+        self.best_fixed_cnt = -1
+        self.best_selected_cnt = -1
 
+        # 2. 모든 노드를 시작점으로 시도
         for i in range(self.n):
             node = self.nodes[i]
+            
+            # (시작점 필터링)
             if node["type"] not in ["spot", "selected", "fixed", "lunch", "dinner"]:
                 continue
             
@@ -126,6 +135,10 @@ class SimpleRouteSolver:
 
             is_start_lunch = (node["type"] == "lunch")
             is_start_dinner = (node["type"] == "dinner")
+            
+            # [NEW] 시작점의 타입에 따라 초기 카운트 설정
+            initial_fixed_cnt = 1 if node["type"] == "fixed" else 0
+            initial_selected_cnt = 1 if node["type"] == "selected" else 0
 
             self._dfs(
                 curr_idx=i, 
@@ -136,22 +149,45 @@ class SimpleRouteSolver:
                 current_score=initial_score, 
                 arrival_times={i: actual_start}, 
                 has_lunch=is_start_lunch, 
-                has_dinner=is_start_dinner
+                has_dinner=is_start_dinner,
+                fixed_cnt=initial_fixed_cnt,       # 고정일정 개수 전달
+                selected_cnt=initial_selected_cnt  # [NEW] 선택장소 개수 전달
             )
+        
         return self.best_path, self.best_arrival_times
 
-    def _dfs(self, curr_idx, curr_time, visited, path, total_cost, current_score, arrival_times, has_lunch, has_dinner):
-        if current_score > self.best_score:
+    def _dfs(self, curr_idx, curr_time, visited, path, total_cost, current_score, arrival_times, has_lunch, has_dinner, fixed_cnt, selected_cnt):
+        # [핵심 수정] 최적 경로 갱신 로직 (우선순위: 고정 > 선택 > 점수 > 비용)
+        update_best = False
+        
+        # 1. 고정 일정 개수가 더 많으면 무조건 갱신
+        if fixed_cnt > self.best_fixed_cnt:
+            update_best = True
+        
+        # 2. 고정 일정 개수가 같다면 -> 선택 장소 개수 비교
+        elif fixed_cnt == self.best_fixed_cnt:
+            if selected_cnt > self.best_selected_cnt:
+                update_best = True
+            
+            # 3. 선택 장소 개수도 같다면 -> 점수 비교
+            elif selected_cnt == self.best_selected_cnt:
+                if current_score > self.best_score:
+                    update_best = True
+                
+                # 4. 점수도 같다면 -> 이동 시간(비용) 비교
+                elif current_score == self.best_score:
+                    if total_cost < self.best_cost:
+                        update_best = True
+
+        if update_best:
+            self.best_fixed_cnt = fixed_cnt
+            self.best_selected_cnt = selected_cnt
             self.best_score = current_score
             self.best_cost = total_cost
             self.best_path = list(path)
             self.best_arrival_times = arrival_times.copy()
-        elif current_score == self.best_score:
-            if total_cost < self.best_cost:
-                self.best_cost = total_cost
-                self.best_path = list(path)
-                self.best_arrival_times = arrival_times.copy()
 
+        # 다음 노드 탐색
         for next_idx in range(self.n):
             if not visited[next_idx]:
                 node = self.nodes[next_idx]
@@ -160,10 +196,12 @@ class SimpleRouteSolver:
                 arrival = curr_time + travel_time
                 win_start, win_end = self.windows[next_idx]
 
+                # (필터링 로직들)
                 if node_type == "lunch" and has_lunch: continue
                 if node_type == "dinner" and has_dinner: continue
                 if any(self.nodes[p_idx]["name"] == node["name"] for p_idx in path): continue
 
+                # (고정 일정/일반 일정 시간 체크 로직은 기존과 동일하므로 생략하지 않고 그대로 둠)
                 if node_type == "fixed":
                     if arrival > win_end: continue
                     start_activity = win_start
@@ -183,6 +221,7 @@ class SimpleRouteSolver:
                     temp_leave_time = start_activity + stay_duration
                     overlap = False
                     for f_idx in range(self.n):
+                        if f_idx == next_idx: continue 
                         if self.nodes[f_idx]["type"] == "fixed":
                             f_start = self.windows[f_idx][0]
                             f_end_act = f_start + self.nodes[f_idx]["stay"]
@@ -194,24 +233,31 @@ class SimpleRouteSolver:
                 leave_time = start_activity + self.nodes[next_idx]["stay"]
                 if leave_time > self.max_horizon: continue
 
+                # 비용 및 점수 계산
                 penalty_cost = 0
-                node_score = {"fixed": 15000, "selected": 10000, "lunch": 5000, "dinner": 5000}.get(node_type, 1000)
+                node_score = {"fixed": 15000, "selected": 8000, "lunch": 5000, "dinner": 5000}.get(node_type, 1000)
 
-                if len(path) > 1 and wait_time > 30:
-                    penalty_cost += (wait_time - 30) * 10
-                
+                if len(path) > 1 and wait_time > 30: penalty_cost += (wait_time - 30) * 10
                 penalty_cost += travel_time * 2
-                if travel_time > 40:
-                    penalty_cost += (travel_time - 40) * 10
+                if travel_time > 40: penalty_cost += (travel_time - 40) * 10
 
                 visited[next_idx] = True
                 path.append(next_idx)
                 arrival_times[next_idx] = arrival
+                
+                # [NEW] 다음 단계로 카운트 증가시켜 전달
+                next_fixed = fixed_cnt + (1 if node_type == "fixed" else 0)
+                next_selected = selected_cnt + (1 if node_type == "selected" else 0)
+                
                 self._dfs(
                     next_idx, leave_time, visited, path,
                     total_cost + travel_time + actual_wait_for_penalty + penalty_cost,
                     current_score + node_score - penalty_cost,
-                    arrival_times, has_lunch or (node_type == "lunch"), has_dinner or (node_type == "dinner")
+                    arrival_times, 
+                    has_lunch or (node_type == "lunch"), 
+                    has_dinner or (node_type == "dinner"),
+                    next_fixed,    # [NEW]
+                    next_selected  # [NEW]
                 )
                 path.pop()
                 visited[next_idx] = False
@@ -1086,15 +1132,25 @@ class RouteOptimizerService:
                     # 거리 계산 및 가까운 카페 찾기 (0.6km 이내)
                     last_lat, last_lng = final_nodes[-1]['lat'], final_nodes[-1]['lng']
                     
-                    # (간소화된 거리 필터링 로직)
-                    df_cafes['dist'] = df_cafes.apply(lambda r: self._haversine(last_lat, last_lng, r['lat'], r['lng']), axis=1)
-                    candidates = df_cafes[df_cafes['dist'] <= 0.6].sort_values('dist')
+                    # 좌표
+                    target_lat, target_lng = next_node['lat'], next_node['lng']
+                    
+                    # 다음 장소(운동)까지의 거리를 계산
+                    df_cafes['dist_to_next'] = df_cafes.apply(
+                        lambda r: self._haversine(target_lat, target_lng, r['lat'], r['lng']), 
+                        axis=1
+                    )
+
+                    candidates = df_cafes[df_cafes['dist_to_next'] <= 0.6].sort_values('dist_to_next')
                     
                     if not candidates.empty:
-                        cafe = candidates.iloc[0]
-                        stay_time = min(gap - 10, 60) # 최대 60분
+                        cafe = candidates.iloc[0] # 목적지와 가장 가까운 카페 선택
                         
-                        if stay_time >= 20: # 최소 20분 체류 가능 시 추가
+                        walk_min_to_next = int(cafe['dist_to_next'] / 4 * 60) + 5 
+                        
+                        stay_time = min(gap - walk_min_to_next - 5, 60) 
+                        
+                        if stay_time >= 20: # 최소 20분 이상 앉아있을 수 있다면 추가
                             cafe_node = {
                                 "id": 9900 + i,
                                 "name": cafe['name'],
@@ -1102,9 +1158,10 @@ class RouteOptimizerService:
                                 "category": "틈새 카페",
                                 "category2": cafe.get('category2', '카페'),
                                 "lat": cafe['lat'], "lng": cafe['lng'],
-                                "stay": int(stay_time), "arrival_min": expected_arrival
+                                "stay": int(stay_time), 
+                                "arrival_min": expected_arrival # 이전 장소에서 바로 옴
                             }
-                            print(f"틈새 카페 추가: {cafe['name']} ({int(stay_time)}분 체류)")
+                            print(f"틈새 카페 추가: {cafe['name']} (목적지까지 {int(cafe['dist_to_next']*1000)}m, 체류 {int(stay_time)}분)")
                             final_nodes.append(cafe_node)
                             
                             curr_cursor = cafe_node['arrival_min'] + stay_time
