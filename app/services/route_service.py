@@ -890,15 +890,16 @@ class RouteOptimizerService:
 
     # ========== 3-5. 타임라인 생성 ==========
     def _build_timeline_by_type(self, visited_nodes, path_map, timeline_base_dt, target_date_str, path_type, transport_mode="transport"):
-        timeline = []
         if not visited_nodes: return []
+        timeline = []
         
         start_min = visited_nodes[0].get('arrival_min', 0)
+        
         ICONS = {0: "🟢", 1: "🟡", 2: "🔴"} 
         LVL_TXT = {0: "원활", 1: "서행", 2: "정체"}
         POP_TXT = {0: "여유", 1: "보통", 2: "혼잡"}
 
-        # [첫 번째 장소]
+        # 첫 번째 장소 처리
         first_node = visited_nodes[0]
         f_arrival_dt = timeline_base_dt + timedelta(minutes=first_node.get('arrival_min', start_min))
         
@@ -916,8 +917,11 @@ class RouteOptimizerService:
             f_w_stay = math.ceil(first_node["stay"] * self._get_stay_weight(f_pop_lvl))
             f_add_s = f_w_stay - first_node["stay"]
             f_final_stay = f_w_stay
-            if f_add_s > 0: f_cong_tag = f" [{f_icon}{f_pop_txt} (+{f_add_s}분)]"
-            else: f_cong_tag = f" [{f_icon}{f_pop_txt}]"
+            
+            if f_add_s > 0:
+                f_cong_tag = f" [{f_icon}{f_pop_txt} (+{f_add_s}분)]"
+            else:
+                f_cong_tag = f" [{f_icon}{f_pop_txt}]"
             f_pop_label = f"인구 {f_pop_txt}{f_icon}"
         else:
             f_pop_label = "고정일정"
@@ -944,7 +948,7 @@ class RouteOptimizerService:
             "traffic_level": f_traffic_str
         })
 
-        # [나머지 장소]
+        # 나머지 장소 처리
         for i in range(1, len(visited_nodes)):
             prev, node = visited_nodes[i-1], visited_nodes[i]
             transit_info, cur_travel_m = [], 0
@@ -952,12 +956,10 @@ class RouteOptimizerService:
             arrival_dt = timeline_base_dt + timedelta(minutes=node.get('arrival_min', start_min))
             dest_traffic_lvl = self._get_traffic_level(node.get('lat'), node.get('lng'), arrival_dt)
 
-            # 이동 경로
             path_opts = path_map.get((prev['id'], node['id']))
             if path_opts:
                 chosen = path_opts.get('fastest' if transport_mode == "car" else path_type, [])
                 for seg in chosen:
-                    # 시간 추출 (숫자+분 패턴)
                     found_times = re.findall(r'(\d+)분', seg)
                     s_min = sum(int(m) for m in found_times)
                     
@@ -967,11 +969,13 @@ class RouteOptimizerService:
                     is_car = "승용차" in seg
                     is_bus = "버스" in seg
                     
+                    # 대기: 시간만 더하고 텍스트(태그)는 출력 안 함
                     if "대기" in seg:
                         origin_lvl = self._get_traffic_level(prev.get('lat'), prev.get('lng'), cursor_dt)
                         added = math.ceil(s_min * self._get_wait_weight(origin_lvl)) - s_min
-                        tag = f" [{ICONS.get(origin_lvl)}혼잡 (+{added}분)]" if added > 0 else f" [{ICONS.get(origin_lvl)}혼잡]"
-                    # [버스/승용차] 로직
+                        tag = "" # 태그 비움
+
+                    # [버스/승용차] 로직 (기존 유지: 원활이면 +0분 숨김)
                     elif is_car or is_bus:
                         weight = self._get_travel_time_weight(dest_traffic_lvl, "car" if is_car else "bus")
                         added = math.ceil(s_min * weight) - s_min
@@ -980,7 +984,9 @@ class RouteOptimizerService:
 
                         t_txt = LVL_TXT.get(dest_traffic_lvl, "서행")
                         
-                        if added > 0:
+                        if dest_traffic_lvl == 0:
+                            tag = f" [{ICONS.get(dest_traffic_lvl)}{t_txt}]"
+                        elif added > 0:
                             tag = f" [{ICONS.get(dest_traffic_lvl)}{t_txt} (+{added}분)]"
                         else:
                             tag = f" [{ICONS.get(dest_traffic_lvl)}{t_txt}]"
@@ -991,17 +997,19 @@ class RouteOptimizerService:
                     cur_travel_m += real_m
                     
                     if found_times:
+                        # "대기 : 5분" 형태로만 출력됨
                         new_seg = re.sub(r'(\d+)분', f'{real_m}분', seg) + tag
                         transit_info.append(new_seg)
                     else:
                         transit_info.append(seg + tag)
+
             else: 
                 cur_travel_m = self._travel_minutes(prev, node, transport_mode)
-                transit_info.append(f"이동 : {cur_travel_m}분")
+                transit_info.append(f"이동 : {cur_travel_m}분 (정보없음)")
             
             arrival_dt = cursor_dt + timedelta(minutes=cur_travel_m)
 
-            # 스마트 도착 보정 (여유/대기)
+            # 스마트 도착 보정
             target_dt = None
             if node["type"] in ["lunch", "dinner"]:
                 win = LUNCH_WINDOW if node["type"] == "lunch" else DINNER_WINDOW
@@ -1024,7 +1032,6 @@ class RouteOptimizerService:
             if wait_m > 0: transit_info.append(f"현장 대기 : {wait_m}분")
             arrival_dt += timedelta(minutes=wait_m)
 
-            # 인구 혼잡도 및 체류 시간
             pop_lvl = self._get_population_level(node.get('lat'), node.get('lng'), arrival_dt)
             pop_txt = POP_TXT.get(pop_lvl, "정보없음")
             icon = ICONS.get(pop_lvl, "")
@@ -1032,17 +1039,23 @@ class RouteOptimizerService:
             if node["type"] in ["spot", "selected", "lunch", "dinner", "gap_filler"]:
                 w_stay = math.ceil(node["stay"] * self._get_stay_weight(pop_lvl))
                 add_s, final_stay = w_stay - node["stay"], w_stay
-                cong_tag = f" [{icon}{pop_txt} (+{add_s}분)]" if add_s > 0 else f" [{icon}{pop_txt}]"
+                
+                if add_s > 0:
+                    cong_tag = f" [{icon}{pop_txt} (+{add_s}분)]"
+                else:
+                    cong_tag = f" [{icon}{pop_txt}]"
+                    
                 pop_label = f"인구 {pop_txt}{icon}"
             else:
                 final_stay, cong_tag = node["stay"], ""
                 pop_label = "고정일정"
 
-            # 결과 조립
             if node["type"] == "fixed":
                 time_str = node["orig_time_str"]
-                try: cursor_dt = datetime.strptime(f"{target_date_str} {node['orig_time_str'].split(' - ')[1]}", "%Y-%m-%d %H:%M")
-                except: cursor_dt = arrival_dt + timedelta(minutes=final_stay)
+                try:
+                    cursor_dt = datetime.strptime(f"{target_date_str} {node['orig_time_str'].split(' - ')[1]}", "%Y-%m-%d %H:%M")
+                except:
+                    cursor_dt = arrival_dt + timedelta(minutes=final_stay)
             else:
                 end_dt = arrival_dt + timedelta(minutes=final_stay)
                 time_str = f"{arrival_dt.strftime('%H:%M')} - {end_dt.strftime('%H:%M')}{cong_tag}"
