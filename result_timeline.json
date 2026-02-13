@@ -2,248 +2,359 @@
   "day1": {
     "route": [
       {
-        "name": "홍대걷고싶은거리",
+        "id": "37.559986_126.975299",
+        "name": "숭례문",
         "category": "관광지",
-        "category2": "도시/지역문화관광",
-        "lat": 37.5555489875,
-        "lng": 126.9237957624,
-        "addr": "서울특별시 마포구 서교동"
+        "category2": "역사유적지",
+        "lat": 37.5599855058,
+        "lng": 126.9752992762,
+        "addr": "서울특별시 중구 세종대로 40",
+        "type": "spot",
+        "stay": 90,
+        "window": [
+          0,
+          1440
+        ],
+        "orig_time_str": ""
       },
       {
-        "name": "망원동 카페",
-        "category": "카페",
-        "category2": "선택장소",
-        "lat": 37.5486074,
-        "lng": 126.91453,
-        "addr": "서울 마포구 독막로 12"
-      },
-      {
-        "name": "소금집델리 망원",
-        "category": "음식점",
-        "category2": "외국식",
-        "lat": 37.556876333,
-        "lng": 126.9082499196,
-        "addr": "서울특별시 마포구 월드컵로19길 142층"
-      },
-      {
-        "name": "키다리아저씨",
+        "id": "37.566104_126.972383",
+        "name": "라운드앤드",
         "category": "틈새 카페",
         "category2": "카페",
-        "lat": 37.5584928548,
-        "lng": 126.9106413228,
-        "addr": "서울특별시 마포구 성미산로 22 (성산동)"
+        "lat": 37.5661041865,
+        "lng": 126.9723827022,
+        "addr": "",
+        "type": "gap_filler",
+        "stay": 29,
+        "window": null,
+        "orig_time_str": ""
       },
       {
-        "name": "경복궁관광",
-        "category": "고정일정",
-        "category2": "",
-        "lat": 37.5575471318329,
-        "lng": 126.908213840628,
-        "addr": "서울 마포구 월드컵로23길 4"
-      },
-      {
-        "name": "카와카츠 본점",
+        "id": "37.562557_126.973747",
+        "name": "잼배옥",
         "category": "음식점",
-        "category2": null,
-        "lat": 37.5547277946125,
-        "lng": 126.916188973209,
-        "addr": "서울특별시 마포구 동교로 126 광남벨라스아파트102호"
+        "category2": "한식",
+        "lat": 37.5625574008,
+        "lng": 126.9737465671,
+        "addr": "서울특별시 중구 세종대로9길 68-9",
+        "type": "lunch",
+        "stay": 70,
+        "window": null,
+        "orig_time_str": ""
+      },
+      {
+        "id": "37.564866_126.975866",
+        "name": "정동전망대",
+        "category": "관광지",
+        "category2": "랜드마크관광",
+        "lat": 37.5648655043,
+        "lng": 126.9758657534,
+        "addr": "서울특별시 중구 덕수궁길 15 (서소문동)",
+        "type": "spot",
+        "stay": 90,
+        "window": [
+          0,
+          1440
+        ],
+        "orig_time_str": ""
+      },
+      {
+        "id": "37.565502_126.978796",
+        "name": "서울광장",
+        "category": "관광지",
+        "category2": "도시공원",
+        "lat": 37.5655015943,
+        "lng": 126.9787960237,
+        "addr": "서울특별시 중구 을지로 지하12 (을지로1가)",
+        "type": "spot",
+        "stay": 90,
+        "window": [
+          0,
+          1440
+        ],
+        "orig_time_str": ""
+      },
+      {
+        "id": "37.565564_126.974895",
+        "name": "덕수궁",
+        "category": "기타",
+        "category2": "선택장소",
+        "lat": 37.5655638710672,
+        "lng": 126.974894754989,
+        "addr": "서울 중구 세종대로 99",
+        "type": "selected",
+        "stay": 60,
+        "window": [
+          0,
+          1440
+        ],
+        "orig_time_str": ""
+      },
+      {
+        "id": "37.566624_126.988623",
+        "name": "커피한약방",
+        "category": "카페",
+        "category2": "카페",
+        "lat": 37.5666238627,
+        "lng": 126.9886228739,
+        "addr": "서울특별시 중구 삼일대로12길 16-6 (을지로2가)",
+        "type": "spot",
+        "stay": 50,
+        "window": [
+          0,
+          1440
+        ],
+        "orig_time_str": ""
+      },
+      {
+        "id": "37.568974_126.986409",
+        "name": "된장예술과술",
+        "category": "음식점",
+        "category2": "한식",
+        "lat": 37.5689735496,
+        "lng": 126.9864091204,
+        "addr": "서울특별시 종로구 삼일대로15길 20(관철동)",
+        "type": "dinner",
+        "stay": 70,
+        "window": null,
+        "orig_time_str": ""
       }
     ],
     "restaurants": [
       {
-        "name": "카와카츠 본점",
-        "category": "음식점",
-        "category2": null,
-        "lat": 37.5547277946125,
-        "lng": 126.916188973209,
-        "addr": "서울특별시 마포구 동교로 126 광남벨라스아파트102호"
-      },
-      {
-        "name": "소금집델리 망원",
-        "category": "음식점",
-        "category2": "외국식",
-        "lat": 37.556876333,
-        "lng": 126.9082499196,
-        "addr": "서울특별시 마포구 월드컵로19길 142층"
-      },
-      {
-        "name": "청어람 망원본점",
-        "category": "음식점",
-        "category2": null,
-        "lat": 37.5581456172,
-        "lng": 126.9075249497,
-        "addr": "서울특별시 마포구 망원로 97(망원동)"
-      },
-      {
-        "name": "잠두봉더나인",
+        "name": "잼배옥",
         "category": "음식점",
         "category2": "한식",
-        "lat": 37.5450915936,
-        "lng": 126.908350243,
-        "addr": "서울특별시 마포구 마포나루길 582(합정동)"
+        "lat": 37.5625574008,
+        "lng": 126.9737465671,
+        "addr": "서울특별시 중구 세종대로9길 68-9",
+        "type": "restaurant"
+      },
+      {
+        "name": "된장예술과술",
+        "category": "음식점",
+        "category2": "한식",
+        "lat": 37.5689735496,
+        "lng": 126.9864091204,
+        "addr": "서울특별시 종로구 삼일대로15길 20(관철동)",
+        "type": "restaurant"
+      },
+      {
+        "name": "사찰음식 전문점 발우공양",
+        "category": "음식점",
+        "category2": "한식",
+        "lat": 37.5739312489,
+        "lng": 126.9831814961,
+        "addr": "서울특별시 종로구 우정국로 56",
+        "type": "restaurant"
+      },
+      {
+        "name": "다락정",
+        "category": "음식점",
+        "category2": "한식",
+        "lat": 37.5873018875,
+        "lng": 126.9815507103,
+        "addr": "서울특별시 종로구 삼청로 131-1 (삼청동)",
+        "type": "restaurant"
       }
     ],
     "accommodations": [
       {
-        "name": "서울크라운88게스트하우스 [한국관광 품질인증/Korea Quality]",
+        "name": "더 플라자 호텔 서울",
         "category": "숙박",
-        "category2": "호스텔",
-        "lat": 37.5631509288,
-        "lng": 126.9264036431,
-        "addr": "서울특별시 마포구 성미산로 189(연남동)"
+        "category2": "호텔",
+        "lat": 37.564679455,
+        "lng": 126.9780822232,
+        "addr": "서울특별시 중구 소공로 119(태평로2가)",
+        "type": "accommodation"
       }
     ],
     "timelines": {
       "fastest_version": [
         {
-          "name": "홍대걷고싶은거리",
+          "name": "숭례문",
           "category": "관광지",
-          "category2": "도시/지역문화관광",
-          "time": "10:00 - 11:53 [🔴혼잡 (+23분)]",
+          "category2": "역사유적지",
+          "time": "09:00 - 10:30 [🟢여유]",
           "transit_to_here": [],
-          "population_level": "인구 혼잡🔴",
-          "traffic_level": "교통 정체🔴"
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 원활🟢"
         },
         {
-          "name": "망원동 카페",
-          "category": "카페",
-          "category2": "선택장소",
-          "time": "12:09 - 13:12 [🔴혼잡 (+13분)]",
-          "transit_to_here": [
-            "도보 : 4분",
-            "대기 : 6분 [🔴혼잡 (+2분)]",
-            "[지하철][서울 2호선] : 홍대입구 → 합정 : 2분",
-            "도보 : 4분"
-          ],
-          "population_level": "인구 혼잡🔴",
-          "traffic_level": "교통 서행🟡"
-        },
-        {
-          "name": "소금집델리 망원",
-          "category": "음식점",
-          "category2": "외국식",
-          "time": "13:29 - 14:57 [🔴혼잡 (+18분)]",
-          "transit_to_here": [
-            "도보 : 1분",
-            "대기 : 6분 [🔴혼잡 (+2분)]",
-            "[버스][7011] : 합정역 → 서서울농협 : 3분 [🟡서행 (+1분)]",
-            "도보 : 7분"
-          ],
-          "population_level": "인구 혼잡🔴",
-          "traffic_level": "교통 서행🟡"
-        },
-        {
-          "name": "키다리아저씨",
+          "name": "라운드앤드",
           "category": "틈새 카페",
           "category2": "카페",
-          "time": "15:03 - 15:43 [🔴혼잡 (+8분)]",
+          "time": "10:42 - 11:11 [🟢여유]",
           "transit_to_here": [
-            "도보 : 6분"
+            "도보 : 12분"
           ],
-          "population_level": "인구 혼잡🔴",
-          "traffic_level": "교통 정체🔴"
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 원활🟢"
         },
         {
-          "name": "운동",
-          "category": "고정일정",
-          "category2": "",
-          "time": "16:00 - 17:50",
+          "name": "잼배옥",
+          "category": "음식점",
+          "category2": "한식",
+          "time": "12:00 - 13:28 [🔴혼잡 (+18분)]",
           "transit_to_here": [
-            "출발 전 여유 : 2분",
-            "도보 : 5분",
+            "출발 전 여유 : 31분",
+            "도보 : 8분",
             "현장 대기 : 10분"
           ],
-          "population_level": "고정일정",
-          "traffic_level": "교통 정체🔴"
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 원활🟢"
         },
         {
-          "name": "카와카츠 본점",
-          "category": "음식점",
-          "category2": null,
-          "time": "18:08 - 19:36 [🔴혼잡 (+18분)]",
+          "name": "정동전망대",
+          "category": "관광지",
+          "category2": "랜드마크관광",
+          "time": "13:37 - 15:17 [🟡보통 (+10분)]",
           "transit_to_here": [
-            "도보 : 2분",
-            "대기 : 3분 [🔴혼잡 (+1분)]",
-            "[버스][마포09] : 구)망원우체국사거리 → 서교동주민센터 : 10분 [🔴정체 (+4분)]",
+            "도보 : 9분"
+          ],
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 원활🟢"
+        },
+        {
+          "name": "서울광장",
+          "category": "관광지",
+          "category2": "도시공원",
+          "time": "15:22 - 17:02 [🟡보통 (+10분)]",
+          "transit_to_here": [
+            "도보 : 5분"
+          ],
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 원활🟢"
+        },
+        {
+          "name": "덕수궁",
+          "category": "기타",
+          "category2": "선택장소",
+          "time": "17:11 - 18:17 [🟡보통 (+6분)]",
+          "transit_to_here": [
+            "도보 : 9분"
+          ],
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 원활🟢"
+        },
+        {
+          "name": "커피한약방",
+          "category": "카페",
+          "category2": "카페",
+          "time": "18:34 - 19:30 [🟡보통 (+6분)]",
+          "transit_to_here": [
+            "도보 : 6분",
+            "대기 : 2분",
+            "[버스][501] : 서울신문사 → 을지로2가.기업은행본점.서울노동청 : 6분 [🟡서행 (+2분)]",
             "도보 : 3분"
           ],
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 서행🟡"
+        },
+        {
+          "name": "된장예술과술",
+          "category": "음식점",
+          "category2": "한식",
+          "time": "19:38 - 21:06 [🔴혼잡 (+18분)]",
+          "transit_to_here": [
+            "도보 : 8분"
+          ],
           "population_level": "인구 혼잡🔴",
-          "traffic_level": "교통 정체🔴"
+          "traffic_level": "교통 서행🟡"
         }
       ],
       "min_transfer_version": [
         {
-          "name": "홍대걷고싶은거리",
+          "name": "숭례문",
           "category": "관광지",
-          "category2": "도시/지역문화관광",
-          "time": "10:00 - 11:53 [🔴혼잡 (+23분)]",
+          "category2": "역사유적지",
+          "time": "09:00 - 10:30 [🟢여유]",
           "transit_to_here": [],
-          "population_level": "인구 혼잡🔴",
-          "traffic_level": "교통 정체🔴"
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 원활🟢"
         },
         {
-          "name": "망원동 카페",
-          "category": "카페",
-          "category2": "선택장소",
-          "time": "12:09 - 13:12 [🔴혼잡 (+13분)]",
-          "transit_to_here": [
-            "도보 : 4분",
-            "대기 : 6분 [🔴혼잡 (+2분)]",
-            "[지하철][서울 2호선] : 홍대입구 → 합정 : 2분",
-            "도보 : 4분"
-          ],
-          "population_level": "인구 혼잡🔴",
-          "traffic_level": "교통 서행🟡"
-        },
-        {
-          "name": "소금집델리 망원",
-          "category": "음식점",
-          "category2": "외국식",
-          "time": "13:29 - 14:57 [🔴혼잡 (+18분)]",
-          "transit_to_here": [
-            "도보 : 1분",
-            "대기 : 6분 [🔴혼잡 (+2분)]",
-            "[버스][7011] : 합정역 → 서서울농협 : 3분 [🟡서행 (+1분)]",
-            "도보 : 7분"
-          ],
-          "population_level": "인구 혼잡🔴",
-          "traffic_level": "교통 서행🟡"
-        },
-        {
-          "name": "키다리아저씨",
+          "name": "라운드앤드",
           "category": "틈새 카페",
           "category2": "카페",
-          "time": "15:03 - 15:43 [🔴혼잡 (+8분)]",
+          "time": "10:42 - 11:11 [🟢여유]",
           "transit_to_here": [
-            "도보 : 6분"
+            "도보 : 12분"
           ],
-          "population_level": "인구 혼잡🔴",
-          "traffic_level": "교통 정체🔴"
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 원활🟢"
         },
         {
-          "name": "경복궁관광",
-          "category": "고정일정",
-          "category2": "",
-          "time": "16:00 - 17:50",
+          "name": "잼배옥",
+          "category": "음식점",
+          "category2": "한식",
+          "time": "12:00 - 13:28 [🔴혼잡 (+18분)]",
           "transit_to_here": [
-            "출발 전 여유 : 2분",
-            "도보 : 5분",
+            "출발 전 여유 : 31분",
+            "도보 : 8분",
             "현장 대기 : 10분"
           ],
-          "population_level": "고정일정",
+          "population_level": "인구 혼잡🔴",
+          "traffic_level": "교통 원활🟢"
+        },
+        {
+          "name": "정동전망대",
+          "category": "관광지",
+          "category2": "랜드마크관광",
+          "time": "13:37 - 15:17 [🟡보통 (+10분)]",
+          "transit_to_here": [
+            "도보 : 9분"
+          ],
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 원활🟢"
+        },
+        {
+          "name": "서울광장",
+          "category": "관광지",
+          "category2": "도시공원",
+          "time": "15:22 - 17:02 [🟡보통 (+10분)]",
+          "transit_to_here": [
+            "도보 : 5분"
+          ],
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 원활🟢"
+        },
+        {
+          "name": "덕수궁",
+          "category": "기타",
+          "category2": "선택장소",
+          "time": "17:11 - 18:17 [🟡보통 (+6분)]",
+          "transit_to_here": [
+            "도보 : 9분"
+          ],
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 원활🟢"
+        },
+        {
+          "name": "커피한약방",
+          "category": "카페",
+          "category2": "카페",
+          "time": "18:34 - 19:30 [🟡보통 (+6분)]",
+          "transit_to_here": [
+            "도보 : 6분",
+            "대기 : 2분",
+            "[버스][501] : 서울신문사 → 을지로2가.기업은행본점.서울노동청 : 6분 [🟡서행 (+2분)]",
+            "도보 : 3분"
+          ],
+          "population_level": "인구 보통🟡",
           "traffic_level": "교통 서행🟡"
         },
         {
-          "name": "카와카츠 본점",
+          "name": "된장예술과술",
           "category": "음식점",
-          "category2": null,
-          "time": "18:06 - 19:34 [🔴혼잡 (+18분)]",
+          "category2": "한식",
+          "time": "19:38 - 21:06 [🔴혼잡 (+18분)]",
           "transit_to_here": [
-            "도보 : 16분"
+            "도보 : 8분"
           ],
           "population_level": "인구 혼잡🔴",
-          "traffic_level": "교통 정체🔴"
+          "traffic_level": "교통 서행🟡"
         }
       ]
     }
@@ -251,227 +362,195 @@
   "day2": {
     "route": [
       {
-        "name": "덕수궁 돈덕전",
+        "id": "37.573606_126.984881",
+        "name": "뮤지엄 김치간",
+        "category": "관광지",
+        "category2": "산업관광",
+        "lat": 37.5736063169,
+        "lng": 126.9848813503,
+        "addr": "서울특별시 종로구 인사동길 35-4 (관훈동)인사동마루 본관 4~6층",
+        "type": "spot",
+        "stay": 90,
+        "window": [
+          0,
+          1440
+        ],
+        "orig_time_str": ""
+      },
+      {
+        "id": "37.574484_126.983562",
+        "name": "안녕인사동",
+        "category": "관광지",
+        "category2": "랜드마크관광",
+        "lat": 37.5744839692,
+        "lng": 126.9835620013,
+        "addr": "서울특별시 종로구 인사동길 49",
+        "type": "spot",
+        "stay": 90,
+        "window": [
+          0,
+          1440
+        ],
+        "orig_time_str": ""
+      },
+      {
+        "id": "37.574604_126.984996",
+        "name": "정선곤드레쌈밥",
+        "category": "음식점",
+        "category2": "",
+        "lat": 37.5746043908191,
+        "lng": 126.984995581776,
+        "addr": "서울특별시 종로구 인사동12길 11",
+        "type": "lunch",
+        "stay": 70,
+        "window": null,
+        "orig_time_str": ""
+      },
+      {
+        "id": "37.578142_126.988028",
+        "name": "서울 관상감 관천대",
         "category": "관광지",
         "category2": "역사유적지",
-        "lat": 37.5651071556,
-        "lng": 126.9765906796,
-        "addr": ""
-      },
-      {
-        "name": "덕수궁 돌담길",
-        "category": "관광지",
-        "category2": "도시/지역문화관광",
-        "lat": 37.5660820124,
-        "lng": 126.9748935853,
-        "addr": "서울특별시 중구 세종대로 지하 101"
-      },
-      {
-        "name": "전주콩나물해장국",
-        "category": "음식점",
-        "category2": "한식",
-        "lat": 37.576480758,
-        "lng": 126.9723657428,
-        "addr": "서울특별시 종로구 자하문로 3"
-      },
-      {
-        "name": "광화문광장",
-        "category": "관광지",
-        "category2": "도시공원",
-        "lat": 37.5727035021,
-        "lng": 126.9769709861,
-        "addr": "서울특별시 종로구 세종대로 172"
-      },
-      {
-        "name": "내자상회",
-        "category": "틈새 카페",
-        "category2": "카페",
-        "lat": 37.5758502431,
-        "lng": 126.9705214845,
-        "addr": "서울특별시 종로구 사직로10길 3(내자동)"
-      },
-      {
-        "name": "광화문한옥집",
-        "category": "음식점",
-        "category2": "한식",
-        "lat": 37.5727701079,
-        "lng": 126.9740156982,
-        "addr": "서울특별시 종로구 새문안로5가길 7, 지하1층"
+        "lat": 37.5781419576,
+        "lng": 126.9880281575,
+        "addr": "서울특별시 종로구 원서동",
+        "type": "spot",
+        "stay": 90,
+        "window": [
+          0,
+          1440
+        ],
+        "orig_time_str": ""
       }
     ],
     "restaurants": [
       {
-        "name": "이문설농탕",
+        "name": "체부동잔치집돼지갈비",
         "category": "음식점",
         "category2": "한식",
-        "lat": 37.572814725,
-        "lng": 126.9839120167,
-        "addr": "서울특별시 종로구 우정국로 38-13 (견지동)"
+        "lat": 37.5766001654,
+        "lng": 126.9710686355,
+        "addr": "서울특별시 종로구 자하문로1길 24",
+        "type": "restaurant"
       },
       {
-        "name": "새봄떡국국수",
+        "name": "손정보쌈",
         "category": "음식점",
         "category2": "한식",
-        "lat": 37.567451185,
-        "lng": 126.9686024528,
-        "addr": "서울특별시 중구 새문안로 24"
+        "lat": 37.5689818778,
+        "lng": 126.9861952506,
+        "addr": "서울특별시 종로구 삼일대로15길 24 (관철동)",
+        "type": "restaurant"
       },
       {
-        "name": "전주콩나물해장국",
+        "name": "최대감네",
         "category": "음식점",
         "category2": "한식",
-        "lat": 37.576480758,
-        "lng": 126.9723657428,
-        "addr": "서울특별시 종로구 자하문로 3"
+        "lat": 37.5740535092,
+        "lng": 126.9861145585,
+        "addr": "서울특별시 종로구 인사동8길 12-3",
+        "type": "restaurant"
       },
       {
-        "name": "광화문한옥집",
+        "name": "정선곤드레쌈밥",
         "category": "음식점",
-        "category2": "한식",
-        "lat": 37.5727701079,
-        "lng": 126.9740156982,
-        "addr": "서울특별시 종로구 새문안로5가길 7, 지하1층"
+        "category2": "",
+        "lat": 37.5746043908191,
+        "lng": 126.984995581776,
+        "addr": "서울특별시 종로구 인사동12길 11",
+        "type": "restaurant"
       }
     ],
     "accommodations": [],
     "timelines": {
       "fastest_version": [
         {
-          "name": "덕수궁 돈덕전",
+          "name": "뮤지엄 김치간",
           "category": "관광지",
-          "category2": "역사유적지",
+          "category2": "산업관광",
           "time": "10:00 - 11:30 [🟢여유]",
           "transit_to_here": [],
-          "population_level": "인구 여유🟢",
-          "traffic_level": "교통 원활🟢"
-        },
-        {
-          "name": "덕수궁 돌담길",
-          "category": "관광지",
-          "category2": "도시/지역문화관광",
-          "time": "11:30 - 13:00 [🟢여유]",
-          "transit_to_here": [
-            "이동 : 0분 (정보없음)"
-          ],
-          "population_level": "인구 여유🟢",
-          "traffic_level": "교통 원활🟢"
-        },
-        {
-          "name": "전주콩나물해장국",
-          "category": "음식점",
-          "category2": "한식",
-          "time": "13:02 - 14:12 [🟢여유]",
-          "transit_to_here": [
-            "이동 : 2분 (정보없음)"
-          ],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 서행🟡"
         },
         {
-          "name": "광화문광장",
+          "name": "안녕인사동",
           "category": "관광지",
-          "category2": "도시공원",
-          "time": "14:22 - 15:52 [🟢여유]",
+          "category2": "랜드마크관광",
+          "time": "11:33 - 13:03 [🟢여유]",
           "transit_to_here": [
-            "도보 : 2분",
-            "대기 : 3분 [🟡혼잡 (+1분)]",
-            "[버스][1711, 7016, 7018, 7022, 7212, 종로09] : 경복궁역 → 세종문화회관 : 2분 [🟡서행 (+1분)]",
             "도보 : 3분"
           ],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 서행🟡"
         },
         {
-          "name": "내자상회",
-          "category": "틈새 카페",
-          "category2": "카페",
-          "time": "16:04 - 16:42 [🟢여유]",
+          "name": "정선곤드레쌈밥",
+          "category": "음식점",
+          "category2": "",
+          "time": "13:06 - 14:23 [🟡보통 (+7분)]",
           "transit_to_here": [
-            "도보 : 12분"
+            "도보 : 3분"
           ],
-          "population_level": "인구 여유🟢",
+          "population_level": "인구 보통🟡",
           "traffic_level": "교통 서행🟡"
         },
         {
-          "name": "광화문한옥집",
-          "category": "음식점",
-          "category2": "한식",
-          "time": "17:00 - 18:10 [🟢여유]",
+          "name": "서울 관상감 관천대",
+          "category": "관광지",
+          "category2": "역사유적지",
+          "time": "14:36 - 16:16 [🟡보통 (+10분)]",
           "transit_to_here": [
-            "도보 : 8분",
-            "현장 대기 : 10분"
+            "도보 : 4분",
+            "대기 : 3분",
+            "[버스][109, 151, 162, 171, 172, 272, 710, N51] : 안국역.인사동 → 창덕궁.우리소리박물관 : 2분 [🟡서행 (+1분)]",
+            "도보 : 4분"
           ],
-          "population_level": "인구 혼잡🔴",
+          "population_level": "인구 보통🟡",
           "traffic_level": "교통 서행🟡"
         }
       ],
       "min_transfer_version": [
         {
-          "name": "덕수궁 돈덕전",
+          "name": "뮤지엄 김치간",
           "category": "관광지",
-          "category2": "역사유적지",
+          "category2": "산업관광",
           "time": "10:00 - 11:30 [🟢여유]",
           "transit_to_here": [],
           "population_level": "인구 여유🟢",
-          "traffic_level": "교통 원활🟢"
-        },
-        {
-          "name": "덕수궁 돌담길",
-          "category": "관광지",
-          "category2": "도시/지역문화관광",
-          "time": "11:30 - 13:00 [🟢여유]",
-          "transit_to_here": [
-            "이동 : 0분 (정보없음)"
-          ],
-          "population_level": "인구 여유🟢",
-          "traffic_level": "교통 원활🟢"
-        },
-        {
-          "name": "전주콩나물해장국",
-          "category": "음식점",
-          "category2": "한식",
-          "time": "13:02 - 14:12 [🟢여유]",
-          "transit_to_here": [
-            "이동 : 2분 (정보없음)"
-          ],
-          "population_level": "인구 혼잡🔴",
           "traffic_level": "교통 서행🟡"
         },
         {
-          "name": "광화문광장",
+          "name": "안녕인사동",
           "category": "관광지",
-          "category2": "도시공원",
-          "time": "14:22 - 15:52 [🟢여유]",
+          "category2": "랜드마크관광",
+          "time": "11:33 - 13:03 [🟢여유]",
           "transit_to_here": [
-            "도보 : 2분",
-            "대기 : 3분 [🟡혼잡 (+1분)]",
-            "[버스][1711, 7016, 7018, 7022, 7212, 종로09] : 경복궁역 → 세종문화회관 : 2분 [🟡서행 (+1분)]",
             "도보 : 3분"
           ],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 서행🟡"
         },
         {
-          "name": "내자상회",
-          "category": "틈새 카페",
-          "category2": "카페",
-          "time": "16:04 - 16:42 [🟢여유]",
+          "name": "정선곤드레쌈밥",
+          "category": "음식점",
+          "category2": "",
+          "time": "13:06 - 14:23 [🟡보통 (+7분)]",
           "transit_to_here": [
-            "도보 : 12분"
+            "도보 : 3분"
           ],
-          "population_level": "인구 여유🟢",
+          "population_level": "인구 보통🟡",
           "traffic_level": "교통 서행🟡"
         },
         {
-          "name": "광화문한옥집",
-          "category": "음식점",
-          "category2": "한식",
-          "time": "17:00 - 18:10 [🟢여유]",
+          "name": "서울 관상감 관천대",
+          "category": "관광지",
+          "category2": "역사유적지",
+          "time": "14:35 - 16:15 [🟡보통 (+10분)]",
           "transit_to_here": [
-            "도보 : 8분",
-            "현장 대기 : 10분"
+            "도보 : 12분"
           ],
-          "population_level": "인구 혼잡🔴",
+          "population_level": "인구 보통🟡",
           "traffic_level": "교통 서행🟡"
         }
       ]

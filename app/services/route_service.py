@@ -1,6 +1,7 @@
 import os
 import pickle
 import re
+import random
 import time
 import math
 import json
@@ -293,8 +294,10 @@ class RouteOptimizerService:
         self.stop_id_to_name = {}
         self.route_id_to_name = {}
         self.stop_route_map = {}
+        self.place_id_to_name = {}
         
         self.detailed_path_cache = {}
+        self.nearest_stop_map = {}
         self.api_key = None
         self.init_duration = 0
     
@@ -369,6 +372,30 @@ class RouteOptimizerService:
         else: self._build_transport_network()
 
         self._load_metadata()
+        
+        # 장소와 좌표ID 매핑
+        if self.df_places is not None and not self.df_places.empty:
+            try:
+                self.place_id_to_name = {}
+                count = 0
+                
+                # DataFrame을 순회하며 '좌표 ID'를 Key로 저장
+                for _, row in self.df_places.iterrows():
+                    # 헬퍼 함수를 사용해 통일된 좌표 ID 생성
+                    c_id = self._generate_coord_id(row.get('lat'), row.get('lng'))
+                    
+                    if c_id:
+                        self.place_id_to_name[c_id] = row['name']
+                        count += 1
+                        
+                print(f"장소 이름 매핑 완료: {len(self.place_id_to_name)}개")
+            except Exception as e:
+                print(f"장소 이름 매핑 실패: {e}")
+        
+        # 모든 장소에 대해 가까운 정류장 미리 계산 (Pre-compute)
+        if self.df_places is not None and self.stop_coords:
+            self._precompute_nearest_stops_for_all()
+            
         self.init_duration = round(time.time() - start_t, 3)
         self.is_initialized = True
         print(f"초기화 완료 ({self.init_duration}초)")
@@ -468,7 +495,7 @@ class RouteOptimizerService:
         a = math.sin(dphi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda/2)**2
         return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1-a))
     
-    def _find_nearest_stop(self, lat, lng):
+    def _find_nearest_stop(self, lat, lng, max_dist_meters=800):
         """
         주어진 좌표에서 가장 가까운 GTFS 정류장(지하철/버스)을 찾음
         """
@@ -479,14 +506,44 @@ class RouteOptimizerService:
         for stop_id, coords in self.stop_coords.items():
             s_lat = coords.get('lat')
             s_lng = coords.get('lng')
-            if s_lat is None or s_lng is None: continue
+            
+            if abs(lat - s_lat) > 0.01 or abs(lng - s_lng) > 0.01:
+                continue
             
             dist = self._haversine(lat, lng, s_lat, s_lng)
-            if dist < best_dist:
+            if dist < best_dist and dist <= max_dist_meters:
                 best_dist = dist
                 best_stop = {'id': stop_id, 'lat': s_lat, 'lng': s_lng, 'dist': dist}
                 
         return best_stop
+    
+    def _precompute_nearest_stops_for_all(self):
+        """
+        서버 시작 시 모든 장소(df_places)에 대해 _find_nearest_stop을 수행하여 캐싱
+        """
+        if self.df_places is None or self.df_places.empty:
+            return
+
+        print(f"[{len(self.df_places)}개 장소] 인근 정류장 좌표 미리 계산 중... (다소 시간 소요 가능)")
+        count = 0
+        
+        # DataFrame을 순회하며 계산
+        for idx, row in self.df_places.iterrows():
+            # 장소 ID 식별 (DB 컬럼에 'id'가 있다면 그것을, 없다면 index 사용)
+            lat = row.get('lat')
+            lng = row.get('lng')
+
+            if lat and lng:
+                # 위에서 정의한 함수 재사용
+                nearest = self._find_nearest_stop(lat, lng, max_dist_meters=800)
+                
+                if nearest:
+                    # 결과 딕셔너리에 저장 (구조: { 장소ID : 정류장정보 })
+                    coord_id = self._generate_coord_id(lat, lng)
+                    self.nearest_stop_map[coord_id] = nearest
+                    count += 1
+        
+        print(f"  -> {count}개 장소에 대한 정류장 매핑 완료.")
 
     def _travel_minutes(self, p1, p2, mode="transport"):
         if p1 is None or p2 is None or p1.get('lat') is None or p2.get('lat') is None: return 0
@@ -521,6 +578,7 @@ class RouteOptimizerService:
             return r5_travel_times
         except: return {}
     
+    # ========== 아이디 매핑 ==========
     def _make_cache_key(self, start_node, end_node, departure_time, transport_mode):
         s_lat = start_node.get('lat') if start_node.get('lat') is not None else 0.0
         s_lng = start_node.get('lng') if start_node.get('lng') is not None else 0.0
@@ -532,6 +590,11 @@ class RouteOptimizerService:
             end_node.get('name'), round(e_lat, 6), round(e_lng, 6), 
             departure_time.hour, transport_mode
         )
+    
+    def _generate_coord_id(self, lat, lng):
+        """좌표를 이용해 고유 ID 문자열 생성 (예: '37.566535_126.977969')"""
+        if lat is None or lng is None: return "unknown_loc"
+        return f"{float(lat):.6f}_{float(lng):.6f}"
     
     def _get_all_detailed_paths(self, trip_legs, departure_time, transport_mode="transport", cached_times=None):
         if not trip_legs: return {}
@@ -703,15 +766,39 @@ class RouteOptimizerService:
             retry_origins, retry_dests = [], []
             
             for s, e in failed_pairs:
-                new_s_stop = self._find_nearest_stop(s['lat'], s['lng'])
-                new_e_stop = self._find_nearest_stop(e['lat'], e['lng'])
+                s_pid = s.get('place_id')
+                e_pid = e.get('place_id')
+                
+                # 캐시(Pre-computed)에서 먼저 찾기
+                new_s_stop = self.nearest_stop_map.get(s_pid) if s_pid is not None else None
+                new_e_stop = self.nearest_stop_map.get(e_pid) if e_pid is not None else None
+                
+                # [추가] 캐시에 없으면(선택장소 등) 실시간으로 가까운 정류장 찾기
+                if not new_s_stop and s.get('lat'):
+                    print(f"[Rescue] '{s['name']}' 정류장 실시간 탐색...") 
+                    new_s_stop = self._find_nearest_stop(s['lat'], s['lng'])
+                
+                if not new_e_stop and e.get('lat'):
+                    print(f"[Rescue] '{e['name']}' 정류장 실시간 탐색...")
+                    new_e_stop = self._find_nearest_stop(e['lat'], e['lng'])
                 
                 rs = copy.deepcopy(s)
                 re_node = copy.deepcopy(e)
                 
-                if new_s_stop: rs['lat'], rs['lng'] = new_s_stop['lat'], new_s_stop['lng']
-                if new_e_stop: re_node['lat'], re_node['lng'] = new_e_stop['lat'], new_e_stop['lng']
+                s_place_name = self.place_id_to_name.get(s_pid, s.get('name', f"장소({s['id']})"))
+                e_place_name = self.place_id_to_name.get(e_pid, e.get('name', f"장소({e['id']})"))
+                
+                # 좌표 교체 로직
+                if new_s_stop:
+                    rs['lat'], rs['lng'] = new_s_stop['lat'], new_s_stop['lng']
+                    stop_name = self.stop_id_to_name.get(new_s_stop['id'], f"정류장({new_s_stop['id']})")
+                    print(f"(보정) 출발지: {s_place_name} -> {stop_name} (좌표 변경)")
                     
+                if new_e_stop:
+                    re_node['lat'], re_node['lng'] = new_e_stop['lat'], new_e_stop['lng']
+                    stop_name = self.stop_id_to_name.get(new_e_stop['id'], f"정류장({new_e_stop['id']})")
+                    print(f"(보정) 도착지: {e_place_name} -> {stop_name} (좌표 변경)")
+                
                 retry_origins.append(rs)
                 retry_dests.append(re_node)
             
@@ -771,6 +858,7 @@ class RouteOptimizerService:
             # [재계산 모드]
             if not s_str and existing_window and orig_time_str:
                 nodes.append({
+                    "place_id": self._generate_coord_id(lat, lng),
                     "name": title,
                     "category": "고정일정",
                     "category2": "고정일정",
@@ -802,6 +890,7 @@ class RouteOptimizerService:
                 else: final_window = (max(0, start_abs_min - 20), start_abs_min + 5)
 
                 nodes.append({
+                    "place_id": self._generate_coord_id(lat, lng),
                     "name": title,
                     "category": "고정일정",
                     "category2": "고정일정",
@@ -829,6 +918,7 @@ class RouteOptimizerService:
             stay = p.get('stay') or stay_time_map.get(p.get("category"), 60)
             
             nodes.append({
+                "place_id": self._generate_coord_id(p.get("lat"), p.get("lng")),
                 "name": p["name"],
                 "category": p.get("category", "관광지"),
                 "category2": p.get("category2", ""),
@@ -846,6 +936,7 @@ class RouteOptimizerService:
 
             if r_type in ["lunch", "dinner"]:
                 nodes.append({
+                    "place_id": self._generate_coord_id(r.get("lat"), r.get("lng")),
                     "name": r["name"],
                     "category": "음식점",
                     "category2": r.get("category2", "음식점"),
@@ -858,6 +949,7 @@ class RouteOptimizerService:
             else:
                 for meal_type in ["lunch", "dinner"]:
                     nodes.append({
+                        "place_id": self._generate_coord_id(r.get("lat"), r.get("lng")),
                         "name": r["name"],
                         "category": "음식점",
                         "category2": r.get("category2", "음식점"),
@@ -873,6 +965,7 @@ class RouteOptimizerService:
             for sp in selected_places:
                 sp_window = tuple(sp.get("window")) if sp.get("window") else (0, 1440)
                 nodes.append({
+                    "place_id": self._generate_coord_id(sp.get("lat"), sp.get("lng")),
                     "name": sp["name"],
                     "category": sp.get("category", "선택장소"),
                     "category2": sp.get("category2", "선택장소"),
@@ -1364,7 +1457,10 @@ class RouteOptimizerService:
         if not self.api_key:
             best = top_candidates[0]
             return {
-                "name": best['name'], "category": best['category'], "lat": best['lat'], "lng": best['lng'],
+                "id": self._generate_coord_id(best['lat'], best['lng']),
+                "name": best['name'],
+                "category": best['category'],
+                "lat": best['lat'], "lng": best['lng'],
                 "reason": "원래 장소와 가장 가까운 대체 장소입니다."
             }
 
@@ -1392,17 +1488,22 @@ class RouteOptimizerService:
             
             selected_spot = next((c for c in top_candidates if c['name'] == target_name), top_candidates[0])
             return {
-                "name": selected_spot['name'], "category": selected_spot['category'],
-                "category2": selected_spot.get('category2', ''),
-                "lat": selected_spot['lat'], "lng": selected_spot['lng'], "reason": reason
+                "id": self._generate_coord_id(selected_spot['lat'], selected_spot['lng']),
+                "name": selected_spot['name'],
+                "category": selected_spot['category'], "category2": selected_spot.get('category2', ''),
+                "lat": selected_spot['lat'], "lng": selected_spot['lng'],
+                "reason": reason
             }
 
         except Exception as e:
             print(f"Gemini 추천 실패: {e}")
             best = top_candidates[0]
             return {
-                "name": best['name'], "category": best['category'], "category2": best.get('category2', ''),
-                "lat": best['lat'], "lng": best['lng'], "reason": "가장 가까운 거리의 대체 장소입니다."
+                "id": self._generate_coord_id(best['lat'], best['lng']),
+                "name": best['name'],
+                "category": best['category'], "category2": best.get('category2', ''),
+                "lat": best['lat'], "lng": best['lng'],
+                "reason": "가장 가까운 거리의 대체 장소입니다."
             }
 
     # ========== 3-8. API 진입점 (generate_plan) ==========
@@ -1418,9 +1519,11 @@ class RouteOptimizerService:
         center = SEOUL_GU_COORDS.get(request.region, {"lat": 37.57, "lng": 126.98})
 
         if hasattr(request, 'selected_places') and request.selected_places:
-            sp = request.selected_places[0]
-            center = {"lat": float(sp['lat']), "lng": float(sp['lng'])}
+            sp = request.selected_places[0]  # 여기서 sp 정의
+            center = {"lat": float(sp['lat']), "lng": float(sp['lng'])} # sp 사용은 반드시 if문 안에서!
             print(f"중심점 변경: 선택 장소 기준 ({center['lat']}, {center['lng']})")
+        
+        # 고정 일정이 있으면 덮어쓰기 (elif 사용)
         elif request.fixed_events:
             for event in request.fixed_events:
                 e_lat = event.get('lat') if isinstance(event, dict) else getattr(event, 'lat', None)
@@ -1473,6 +1576,55 @@ class RouteOptimizerService:
         plan, _ = self._get_gemini_recommendation(total_days, places, restaurants, accommodations, request)
         print(f"Gemini 생성 완료 : {round(time.time() - start_gemini, 2)}초")
         if not plan: return {'error': 'AI 추천 실패'}
+        
+        # 이름 정규화 함수 (공백 제거 및 소문자화)
+        def normalize(n): return re.sub(r'\s+', '', str(n)).lower()
+        
+        # 검증용 Lookup Table 생성 (이름 -> 데이터)
+        norm_valid_places = {normalize(p['name']): p for p in places}
+        norm_valid_restaurants = {normalize(r['name']): r for r in restaurants}
+        norm_valid_accommodations = {normalize(a['name']): a for a in accommodations}
+        
+        # 전체 DB
+        full_db_map = {normalize(row['name']): row.to_dict() for _, row in self.df_places.iterrows()}
+        
+        def validate_and_fix(item_list, valid_map, category_name):
+            for i, item in enumerate(item_list):
+                orig_name = item.get('name', '')
+                norm_name = normalize(orig_name)
+                
+                # [Case 1] 후보군(Sample)에 정확히 있거나 유사한 이름인 경우
+                if norm_name in valid_map:
+                    target = valid_map[norm_name]
+                    item.update({"name": target['name'], "lat": target['lat'], "lng": target['lng'], 
+                                "category": target.get('category', item.get('category')),
+                                "category2": target.get('category2', "")})
+                    continue
+                
+                # [Case 2] 후보군엔 없지만 전체 DB에 실존하는 경우 (여기서 '경희궁' 등이 구제됨)
+                if norm_name in full_db_map:
+                    target = full_db_map[norm_name]
+                    item.update({"name": target['name'], "lat": target['lat'], "lng": target['lng'],
+                                "category": target.get('category', item.get('category')),
+                                "category2": target.get('category2', "")})
+                    print(f"[Info] 실존 장소 데이터 복구: {orig_name}")
+                    continue
+                
+                # [Case 3] 진짜 없는 장소(환각)인 경우 -> 후보군 중 랜덤 교체
+                if valid_map:
+                    replacement = random.choice(list(valid_map.values()))
+                    print(f"[Warn] 환각 장소 교체: {orig_name} -> {replacement['name']}")
+                    item.update({"name": replacement['name'], "lat": replacement['lat'], "lng": replacement['lng'],
+                                "category": replacement['category'], "category2": replacement.get('category2', "")})
+
+        # 3. 각 항목 검증 실행
+        for day_key, day_plan in plan['plans'].items():
+            if 'route' in day_plan:
+                validate_and_fix(day_plan['route'], norm_valid_places, "관광지")
+            if 'restaurants' in day_plan:
+                validate_and_fix(day_plan['restaurants'], norm_valid_restaurants, "음식점")
+            if 'accommodations' in day_plan:
+                validate_and_fix(day_plan['accommodations'], norm_valid_accommodations, "숙박")
 
         # 좌표 및 주소 보정
         ref_df = self.df_places.set_index("name")
@@ -1565,7 +1717,13 @@ class RouteOptimizerService:
             clean_route_list = []
             for node in updated_nodes:
                 if node['type'] == 'depot': continue
+                
+                final_id = node.get('place_id')
+                if not final_id:
+                    final_id = self._generate_coord_id(node.get('lat'), node.get('lng'))
+                
                 clean_route_list.append({
+                    "id": final_id,
                     "name": node['name'], "category": node['category'], "category2": node.get('category2', ""),
                     "lat": node['lat'], "lng": node['lng'], "addr": node.get("addr", ""),
                     "type": node['type'], "stay": node['stay'],
