@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta
+import math
+import re
 from app.core.exceptions import AppError
 
 # [핵심] 우리가 만든 Route Service 및 스키마 임포트
@@ -7,9 +9,93 @@ from app.schemas.plan import PlanGenerateRequest, FixedEvent
 
 # DB 관련 임포트
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 from app.models.plan import Plan, SavedPlan
 from app.repositories.plan_repo import PlanRepository
-from typing import List, Optional
+from typing import Iterable, List, Optional
+
+def _coerce_float(value) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_text(value: str | None) -> str:
+    if not value:
+        return ""
+    return re.sub(r"\s+", "", value).strip().lower()
+
+
+def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    r = 6371000.0
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    d_phi = math.radians(lat2 - lat1)
+    d_lambda = math.radians(lng2 - lng1)
+    a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return r * c
+
+
+def _coords_close(lat1: float | None, lng1: float | None, lat2: float | None, lng2: float | None, max_m: float) -> bool:
+    if lat1 is None or lng1 is None or lat2 is None or lng2 is None:
+        return False
+    try:
+        return _haversine_m(lat1, lng1, lat2, lng2) <= max_m
+    except Exception:
+        return False
+
+
+def _iter_day_plans(variants: dict) -> Iterable[dict]:
+    if not isinstance(variants, dict):
+        return []
+    if any(k in variants for k in ("route", "restaurants", "accommodations")):
+        yield variants
+        return
+    plans = variants.get("plans")
+    if isinstance(plans, dict):
+        for day in plans.values():
+            if isinstance(day, dict):
+                yield from _iter_day_plans(day)
+    for key, val in variants.items():
+        if key == "summary":
+            continue
+        if isinstance(val, dict):
+            yield from _iter_day_plans(val)
+
+
+def _spot_matches_item(item: dict, spot_name: str, spot_addr: str, spot_lat: float | None, spot_lng: float | None) -> bool:
+    item_lat = _coerce_float(item.get("lat"))
+    item_lng = _coerce_float(item.get("lng"))
+    if _coords_close(spot_lat, spot_lng, item_lat, item_lng, max_m=120.0):
+        return True
+
+    item_name = item.get("name")
+    if item_name and spot_name:
+        if _normalize_text(item_name) == _normalize_text(spot_name):
+            return True
+
+    item_addr = item.get("addr") or item.get("address")
+    if item_addr and spot_addr:
+        norm_item_addr = _normalize_text(item_addr)
+        norm_spot_addr = _normalize_text(spot_addr)
+        if norm_item_addr and norm_spot_addr and (norm_item_addr in norm_spot_addr or norm_spot_addr in norm_item_addr):
+            return True
+
+    return False
+
+
+def _plan_contains_spot(variants: dict, spot_name: str, spot_addr: str, spot_lat: float | None, spot_lng: float | None) -> bool:
+    for day in _iter_day_plans(variants):
+        for key in ("route", "restaurants", "accommodations"):
+            items = day.get(key) or []
+            if isinstance(items, list):
+                for item in items:
+                    if isinstance(item, dict) and _spot_matches_item(item, spot_name, spot_addr, spot_lat, spot_lng):
+                        return True
+    return False
+
 
 class PlanService:
     def __init__(self, db):
@@ -40,6 +126,7 @@ class PlanService:
             print(f"[DEBUG] 요청 모드 확인: {payload.get('transport_mode')}")
             print(f"[DEBUG] 장소 카테고리(categories) 확인: {payload.get('categories')}")
             print(f"[DEBUG] 여행 목적(purposes) 확인: {payload.get('purposes')}")
+            print(f"[DEBUG] 고정된 장소(fixed_events) 확인: {len(fixed_events)}개")
             print(f"[DEBUG] 선택된 장소(selected_places) 확인: {len(selected_places)}개")
 
             # RouteService 요청 객체 생성 (들어온 payload 데이터를 그대로 활용)
@@ -192,49 +279,190 @@ class PlanService:
         if not deleted:
             raise AppError("saved_plan_not_found", f"Saved plan not found: {saved_plan_id}", 404)
 
-    async def list_saved_plans_by_spot(self, user_id: str, spot_id: str, limit: int = 20):
-        """특정 장소와 연결된 저장된 플랜 목록 조회"""
-        return await self.repo.list_saved_plans_by_spot(user_id, spot_id, limit=limit)
+    async def list_saved_plans_by_spot(
+        self,
+        user_id: str,
+        spot_id: str,
+        limit: int = 20,
+        spot_name: str | None = None,
+        spot_address: str | None = None,
+        spot_lat: float | None = None,
+        spot_lng: float | None = None,
+    ):
+        """특정 장소와 연결된 저장된 플랜 목록 조회 (직접 링크 + 코스 포함 추정)"""
+        linked = await self.repo.list_saved_plans_by_spot(user_id, spot_id, limit=limit)
+        if len(linked) >= limit:
+            return linked
 
-    async def recommend_alternative_spots(self, user_id: str, plan_id: str, day: str, spot_names: List[str], categories: Optional[List[str]] = None, region: Optional[str] = None):
-        """
-        대체 장소 추천
-        - plan_id로 Plan 조회하여 지역 정보 가져오기 (없으면 region 파라미터 사용)
-        - 제외할 장소들의 카테고리 추출
-        - route_service를 통해 대체 장소 추천
-        """
-        plan_region = region
+        spot_name = spot_name or ""
+        spot_address = spot_address or ""
+        spot_lat = _coerce_float(spot_lat)
+        spot_lng = _coerce_float(spot_lng)
+
+        # spot 정보가 없으면 직접 링크만 반환
+        if not spot_name and spot_lat is None and spot_lng is None and not spot_address:
+            return linked
+
+        seen_plan_ids = {s.plan_id for s in linked}
+        scan_limit = max(limit * 5, 50)
+        pairs = await self.repo.list_saved_plans_with_plans(user_id, limit=scan_limit)
+        extra = []
+        for saved, plan in pairs:
+            if saved.plan_id in seen_plan_ids:
+                continue
+            variants = plan.variants_json or {}
+            if _plan_contains_spot(variants, spot_name, spot_address, spot_lat, spot_lng):
+                extra.append(saved)
+                seen_plan_ids.add(saved.plan_id)
+                if len(linked) + len(extra) >= limit:
+                    break
+
+        return linked + extra
+
+    async def recalculate_route(self, user_id: str, plan_id: str, day_key: str, remaining_places: list):
+        # 1. DB에서 기존 플랜 조회
+        plan = await self.repo.get_plan(user_id, plan_id)
+        if not plan: raise AppError("plan_not_found", "플랜을 찾을 수 없습니다", 404)
+
+        variants = plan.variants_json or {}
+        summary = variants.get("summary", {})
+        transport_mode = summary.get("transport_mode", plan.transport)
         
-        # Plan 조회 시도 (plan_id가 "temp_no_db_id"인 경우는 조회 실패)
-        if plan_id and plan_id != "temp_no_db_id":
-            plan = await self.repo.get_plan(user_id, plan_id)
-            if plan:
-                plan_region = plan.region
-                
-                # variants_json에서 해당 날짜의 장소 정보 가져오기
-                variants = plan.variants_json or {}
-                day_data = variants.get(day)
-                
-                # 제외할 장소들의 카테고리 추출 (카테고리 미지정 시)
-                if not categories and day_data:
-                    route = day_data.get('route', [])
-                    restaurants = day_data.get('restaurants', [])
-                    accommodations = day_data.get('accommodations', [])
-                    
-                    all_spots = route + restaurants + accommodations
-                    spot_map = {s.get('name'): s.get('category') for s in all_spots if isinstance(s, dict)}
-                    categories = list(set([spot_map.get(name) for name in spot_names if spot_map.get(name)]))
-        
-        # region이 없으면 에러
-        if not plan_region:
-            raise AppError("region_required", "Region is required for alternative spot recommendation", 400)
-        
-        # route_service를 통해 대체 장소 추천
-        alternatives = route_service.recommend_alternative_spots(
-            region=plan_region,
-            exclude_names=spot_names,
-            categories=categories if categories else None,
-            limit=10
+        # 2. 날짜 계산
+        day_index = int(day_key.replace("day", "")) - 1
+        target_date = (datetime.strptime(plan.date, '%Y-%m-%d') + timedelta(days=day_index)).strftime('%Y-%m-%d')
+        start_time_str = plan.start_time if day_index == 0 else "10:00"
+
+        # [Debug] 프론트엔드에서 넘어온 원본 데이터 확인
+        print(f"\n{'='*20} [DEBUG: Recalculate Request] {'='*20}")
+        print(f"Plan ID: {plan_id}, Day: {day_key}, Count: {len(remaining_places)}")
+        print(f"[Current Transport Mode] -> {transport_mode}")
+
+        # 3. 노드 분류
+        only_places = []
+        only_restaurants = []
+        daily_fixed_events = []
+        available_selected = []
+
+        for i, p in enumerate(remaining_places):
+            node = p if isinstance(p, dict) else p.dict()
+            
+            # 고정 일정의 이름은 'name' 또는 'title' 둘 다 확인해야 함
+            node_name = node.get('name') or node.get('title', "이름 없음")
+            
+            # [Debug] 각 노드별 타입/시간 정보 확인
+            print(f"  [{i}] {node_name}: type={node.get('type')}, orig_time={node.get('orig_time_str')}")
+
+            # 분류 로직
+            if node.get('type') == 'fixed':
+                daily_fixed_events.append(node)
+            elif node.get('type') in ['lunch', 'dinner', 'restaurant']:
+                node.pop('window', None)
+                node.pop('orig_time_str', None)
+                only_restaurants.append(node)
+            else:
+                only_places.append(node)
+            
+            # 선택 장소 가중치 복구
+            if any(s.get('name') == node_name for s in summary.get("selected_places", [])):
+                available_selected.append(node)
+
+        # 4. RouteService 최적화 엔진 가동
+        timelines, updated_nodes = route_service.reoptimize_day(
+            places=only_places,
+            restaurants=only_restaurants,
+            fixed_events=daily_fixed_events,
+            start_time_str=start_time_str,
+            target_date_str=target_date,
+            end_time_str="21:00",
+            transport_mode=transport_mode,
+            selected_places=available_selected
         )
+
+        # 5. 결과 가공 (중요: orig_time_str를 반드시 포함해서 저장해야 함!)
+        timeline_ordered_route = []
+        for node in updated_nodes:
+            if node['type'] == 'depot': continue
+            
+            # ✨ [핵심 수정] 다음 재계산 시에도 '고정' 속성을 잃지 않도록 모든 메타데이터 보존
+            processed_node = {
+                "name": node['name'],
+                "category": node['category'],
+                "category2": node.get('category2', ""),
+                "lat": node['lat'], 
+                "lng": node['lng'],
+                "addr": node.get("addr", ""),
+                "type": node['type'],
+                "stay": node['stay'],
+                "window": list(node['window']) if node.get('window') else None,
+                "orig_time_str": node.get('orig_time_str', "") # ✨ 반드시 추가!
+            }
+            timeline_ordered_route.append(processed_node)
+
+        # [Debug] 엔진 결과 확인
+        print(f"DEBUG: [Optimization Result] Final count: {len(timeline_ordered_route)}")
+        print(f"{'='*60}\n")
+
+        # 6. DB 업데이트
+        new_variants = dict(variants)
+        new_variants[day_key] = {"route": timeline_ordered_route, "timelines": timelines}
+        plan.variants_json = new_variants
+        flag_modified(plan, "variants_json")
+        await self.db.commit()
+
+        return {
+            "plan_id": plan.plan_id, 
+            "updated_day": day_key, 
+            "route": timeline_ordered_route, 
+            "timelines": timelines
+        }
+    
+    # 대체 장소 추천 (DB 조회 -> 좌표 확인 -> RouteService 호출)
+    async def recommend_alternative_spots(self, user_id: str, plan_id: str, day: str, spot_names: list, categories: list = None, region: str = None):
+
+        # [DEBUG] 요청 로그
+        print(f"\n{'='*10} [Backend: Spot Replacement Request] {'='*10}")
+        print(f"User: {user_id}, Plan: {plan_id}, Day: {day}")
+        print(f"Target Spots to Replace: {spot_names}")
+
+        # 1. 기존 플랜 조회 (좌표 정보를 얻기 위해)
+        plan = await self.repo.get_plan(user_id, plan_id)
+        if not plan:
+            raise AppError("plan_not_found", "플랜을 찾을 수 없습니다.", 404)
+            
+        variants = plan.variants_json or {}
+        day_plan = variants.get(day)
+        if not day_plan:
+            raise AppError("invalid_day", "해당 날짜의 일정이 없습니다.", 400)
+
+        # 2. 타임라인/루트에서 대상 장소 정보 찾기
+        target_spots = []
+        # route, restaurants, accommodations 모든 리스트 검색
+        all_items = day_plan.get('route', []) + day_plan.get('restaurants', []) + day_plan.get('accommodations', [])
+        
+        for name in spot_names:
+            # 이름으로 매칭 (정확도 향상을 위해 정규화 가능)
+            found = next((item for item in all_items if item.get('name') == name), None)
+            if found:
+                target_spots.append(found)
+        
+        if not target_spots:
+            raise AppError("spot_not_found", "요청한 장소를 일정에서 찾을 수 없습니다.", 404)
+
+        # 3. RouteService를 통해 대체 장소 탐색
+        alternatives = []
+        for spot in target_spots:
+            rec = route_service.get_alternative_spot(
+                original_name=spot['name'],
+                lat=spot['lat'],
+                lng=spot['lng'],
+                category=spot['category']
+            )
+            if rec:
+                print(f"  < Recommended: {rec['name']} (Reason: {rec.get('reason')})")
+                alternatives.append(rec)
+            else:
+                print(f"  < No alternative found for {spot['name']}")
+        print(f"{'='*60}\n")
         
         return alternatives

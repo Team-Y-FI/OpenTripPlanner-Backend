@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     EMAIL_VERIFIED_TTL_SECONDS: int = 3600  # 1 hour
 
     DATABASE_URL: str
+    PLACES_DATABASE_URL: str | None = None
     CORS_ORIGINS: str = ""
 
     STORAGE_BACKEND: str = "local"  # local | s3

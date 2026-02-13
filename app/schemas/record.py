@@ -4,7 +4,7 @@ from app.schemas.upload import PlaceIn
 
 class SpotCreateItem(BaseModel):
     photo_id: str
-    visited_at: datetime
+    visited_at: datetime | None = None
     place: PlaceIn
     memo: str | None = None
 

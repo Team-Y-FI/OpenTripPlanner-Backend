@@ -1,10 +1,15 @@
 import httpx
+import logging
 from app.core.config import settings
 from app.core.exceptions import AppError
+
+logger = logging.getLogger(__name__)
 
 class GeocodingService:
     GOOGLE_BASE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
     KAKAO_BASE_URL = "https://dapi.kakao.com/v2/local/geo/coord2address.json"
+    KAKAO_ADDRESS_URL = "https://dapi.kakao.com/v2/local/search/address.json"
+    KAKAO_KEYWORD_URL = "https://dapi.kakao.com/v2/local/search/keyword.json"
 
     def __init__(self):
         self.google_api_key = settings.GOOGLE_API_KEY
@@ -23,7 +28,13 @@ class GeocodingService:
         실제 어떤 오류인지 알 수 없어서 디버깅이 어려움.
         """
         if self.kakao_rest_api_key:
-            return await self._reverse_geocode_kakao(lat, lng)
+            try:
+                return await self._reverse_geocode_kakao(lat, lng)
+            except AppError as e:
+                logger.warning("Kakao reverse geocode failed: %s", e.message)
+                if self.google_api_key:
+                    return await self._reverse_geocode_google(lat, lng)
+                raise
 
         if self.google_api_key:
             return await self._reverse_geocode_google(lat, lng)
@@ -40,6 +51,11 @@ class GeocodingService:
             resp = await client.get(self.KAKAO_BASE_URL, params=params, headers=headers)
         
         if resp.status_code != 200:
+            logger.warning(
+                "Kakao reverse geocode status=%s body=%s",
+                resp.status_code,
+                resp.text,
+            )
             raise AppError("upstream_error", "Kakao geocoding failed", 502)
         
         data = resp.json()
@@ -107,14 +123,92 @@ class GeocodingService:
         return {"address": address, "road_address": road_address, "region": region}
 
     async def geocode(self, query: str) -> dict:
-        if not self.google_api_key:
-            raise AppError("config_error", "GOOGLE_API_KEY not configured", 500)
-
         q = (query or "").strip()
         if not q:
             raise AppError("bad_request", "주소 또는 장소명을 입력해주세요.", 400)
 
-        params = {"address": q, "key": self.google_api_key, "language": "ko"}
+        if self.kakao_rest_api_key:
+            result = await self._geocode_kakao(q)
+            if result.get("lat") is not None and result.get("lng") is not None:
+                return result
+            if self.google_api_key:
+                return await self._geocode_google(q)
+            return result
+
+        if self.google_api_key:
+            return await self._geocode_google(q)
+
+        raise AppError("config_error", "Geocoding API key not configured", 500)
+
+    async def _geocode_kakao(self, query: str) -> dict:
+        result = await self._geocode_kakao_address(query)
+        if result.get("lat") is not None and result.get("lng") is not None:
+            return result
+        return await self._geocode_kakao_keyword(query)
+
+    async def _geocode_kakao_address(self, query: str) -> dict:
+        params = {"query": query}
+        headers = {"Authorization": f"KakaoAK {self.kakao_rest_api_key}"}
+
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(self.KAKAO_ADDRESS_URL, params=params, headers=headers)
+
+        if resp.status_code != 200:
+            raise AppError("upstream_error", "Kakao geocoding failed", 502)
+
+        data = resp.json()
+        documents = data.get("documents") or []
+        if not documents:
+            return {"lat": None, "lng": None, "address": None, "road_address": None, "region": None}
+
+        doc = documents[0] or {}
+        address = doc.get("address") or {}
+        road_address = doc.get("road_address") or {}
+
+        lat = float(doc.get("y")) if doc.get("y") else None
+        lng = float(doc.get("x")) if doc.get("x") else None
+
+        addr_str = address.get("address_name")
+        road_addr_str = road_address.get("address_name")
+        region = _extract_region_kakao(address)
+
+        return {
+            "lat": lat,
+            "lng": lng,
+            "address": addr_str,
+            "road_address": road_addr_str,
+            "region": region,
+        }
+
+    async def _geocode_kakao_keyword(self, query: str) -> dict:
+        params = {"query": query}
+        headers = {"Authorization": f"KakaoAK {self.kakao_rest_api_key}"}
+
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(self.KAKAO_KEYWORD_URL, params=params, headers=headers)
+
+        if resp.status_code != 200:
+            raise AppError("upstream_error", "Kakao keyword geocoding failed", 502)
+
+        data = resp.json()
+        documents = data.get("documents") or []
+        if not documents:
+            return {"lat": None, "lng": None, "address": None, "road_address": None, "region": None}
+
+        doc = documents[0] or {}
+        lat = float(doc.get("y")) if doc.get("y") else None
+        lng = float(doc.get("x")) if doc.get("x") else None
+
+        addr_str = doc.get("address_name")
+        road_addr_str = doc.get("road_address_name")
+
+        return {
+            "lat": lat,
+            "lng": lng,
+            "address": addr_str,
+            "road_address": road_addr_str,
+            "region": None,
+        }
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(self.GOOGLE_BASE_URL, params=params)
 
@@ -165,3 +259,13 @@ def _extract_region(components: list[dict]) -> str | None:
             if val and val not in values:
                 values.append(val)
     return " ".join(values) if values else None
+
+def _extract_region_kakao(address: dict | None) -> str | None:
+    if not address:
+        return None
+    parts: list[str] = []
+    for key in ["region_1depth_name", "region_2depth_name", "region_3depth_name"]:
+        val = address.get(key)
+        if val and val not in parts:
+            parts.append(val)
+    return " ".join(parts) if parts else None

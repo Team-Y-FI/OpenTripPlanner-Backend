@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, Depends, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,20 +16,35 @@ router = APIRouter()
 async def upload_photos(
     files: list[UploadFile] = File(...),
     exif_required: bool = Form(False),
+    metas: str | None = Form(None),
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
     svc = UploadService(db)
     storage = get_storage_service()
 
+    meta_list = None
+    if metas:
+        try:
+            parsed = json.loads(metas)
+            if isinstance(parsed, list):
+                meta_list = parsed
+        except Exception:
+            meta_list = None
+
     try:
-        upload, photos = await svc.create_upload_with_photos(user.user_id, files, exif_required=exif_required)
+        upload, photos = await svc.create_upload_with_photos(
+            user.user_id,
+            files,
+            exif_required=exif_required,
+            metas=meta_list,
+        )
     except ValueError as e:
         raise AppError("bad_request", str(e), 400)
 
     def photo_out(p):
         exif = None
-        if p.exif_lat is not None and p.exif_lng is not None:
+        if p.exif_lat is not None or p.exif_lng is not None or p.taken_at:
             exif = {
                 "lat": p.exif_lat,
                 "lng": p.exif_lng,
@@ -73,7 +89,7 @@ async def get_upload_status(
 
     def photo_out(p):
         exif = None
-        if p.exif_lat is not None and p.exif_lng is not None:
+        if p.exif_lat is not None or p.exif_lng is not None or p.taken_at:
             exif = {
                 "lat": p.exif_lat,
                 "lng": p.exif_lng,
