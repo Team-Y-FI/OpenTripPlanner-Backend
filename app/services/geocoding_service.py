@@ -1,6 +1,9 @@
 import httpx
+import logging
 from app.core.config import settings
 from app.core.exceptions import AppError
+
+logger = logging.getLogger(__name__)
 
 class GeocodingService:
     GOOGLE_BASE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
@@ -25,7 +28,13 @@ class GeocodingService:
         실제 어떤 오류인지 알 수 없어서 디버깅이 어려움.
         """
         if self.kakao_rest_api_key:
-            return await self._reverse_geocode_kakao(lat, lng)
+            try:
+                return await self._reverse_geocode_kakao(lat, lng)
+            except AppError as e:
+                logger.warning("Kakao reverse geocode failed: %s", e.message)
+                if self.google_api_key:
+                    return await self._reverse_geocode_google(lat, lng)
+                raise
 
         if self.google_api_key:
             return await self._reverse_geocode_google(lat, lng)
@@ -42,6 +51,11 @@ class GeocodingService:
             resp = await client.get(self.KAKAO_BASE_URL, params=params, headers=headers)
         
         if resp.status_code != 200:
+            logger.warning(
+                "Kakao reverse geocode status=%s body=%s",
+                resp.status_code,
+                resp.text,
+            )
             raise AppError("upstream_error", "Kakao geocoding failed", 502)
         
         data = resp.json()
