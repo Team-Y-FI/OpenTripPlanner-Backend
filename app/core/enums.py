@@ -41,12 +41,11 @@ CATEGORIES = [
 
 # Manual place categories (Upload 수동입력)
 PLACE_CATEGORIES = [
-    Option("카페", "카페"),
-    Option("맛집", "맛집"),
-    Option("전시", "전시"),
-    Option("공원", "공원"),
-    Option("야경", "야경"),
-    Option("쇼핑", "쇼핑"),
+    Option("cafe", "카페"),
+    Option("attraction", "관광지"),
+    Option("culture", "문화시설"),
+    Option("shopping", "쇼핑"),
+    Option("restaurant", "음식점"),
 ]
 
 def normalize_by_label_or_value(raw: str, options: list[Option]) -> str:
