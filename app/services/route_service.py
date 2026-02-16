@@ -149,8 +149,10 @@ class SimpleRouteSolver:
             score_map = {"fixed": 15000, "selected": 8000, "lunch": 5000, "dinner": 5000}
             initial_score = score_map.get(node["type"], 1000)
 
-            is_start_lunch = (node["type"] == "lunch")
-            is_start_dinner = (node["type"] == "dinner")
+            # 시작 노드가 'selected'이면서 음식점이면 식사로 간주
+            is_sel_rest = (node["type"] == "selected" and node["category"] == "음식점")
+            is_start_lunch = (node["type"] == "lunch") or (is_sel_rest and abs(win_start - 720) < 60)
+            is_start_dinner = (node["type"] == "dinner") or (is_sel_rest and abs(win_start - 1080) < 60)
             
             # 초기 카운트 설정
             initial_fixed_cnt = 1 if node["type"] == "fixed" else 0
@@ -204,10 +206,17 @@ class SimpleRouteSolver:
                 travel_time = self.matrix[curr_idx][next_idx]
                 arrival = curr_time + travel_time
                 win_start, win_end = self.windows[next_idx]
+                
+                # 식사 여부 판단 (Type='selected' & Category='음식점' & Window 체크)
+                is_sel_rest = (node_type == "selected" and node["category"] == "음식점")
+                is_next_lunch = (node_type == "lunch") or (is_sel_rest and abs(win_start - 720) < 60)
+                is_next_dinner = (node_type == "dinner") or (is_sel_rest and abs(win_start - 1080) < 60)
 
-                # 필터링 로직
-                if node_type == "lunch" and has_lunch: continue
-                if node_type == "dinner" and has_dinner: continue
+                # 이미 식사를 했으면 해당 끼니 노드는 스킵
+                if is_next_lunch and has_lunch: continue
+                if is_next_dinner and has_dinner: continue
+                
+                # 이름 중복 체크 (하루에 같은 식당 2번 방문 방지)ㄴ
                 if any(self.nodes[p_idx]["name"] == node["name"] for p_idx in path): continue
 
                 # 고정 일정 / 일반 일정 시간 체크
@@ -264,8 +273,8 @@ class SimpleRouteSolver:
                     total_cost + travel_time + actual_wait_for_penalty + penalty_cost,
                     current_score + node_score - penalty_cost,
                     arrival_times, 
-                    has_lunch or (node_type == "lunch"), 
-                    has_dinner or (node_type == "dinner"),
+                    has_lunch or is_next_lunch, 
+                    has_dinner or is_next_dinner,
                     next_fixed,
                     next_selected
                 )
@@ -907,7 +916,7 @@ class RouteOptimizerService:
                 continue
         return nodes
 
-    def _build_nodes(self, places, restaurants, fixed_events, day_start_dt, selected_places=None):
+    def _build_nodes(self, places, restaurants, fixed_events, day_start_dt, selected_places=None, selected_restaurant=None):
         """전체 노드 통합 빌드"""
         nodes = []
         
@@ -930,10 +939,44 @@ class RouteOptimizerService:
             })
         
         # 식당
+        # 선택 식당 노드 처리
+        if selected_restaurant:
+            # 점심 후보 (12:00 ~ 13:30)
+            nodes.append({
+                "place_id": self._generate_coord_id(selected_restaurant.get("lat"), selected_restaurant.get("lng")),
+                "name": selected_restaurant["name"],
+                "category": "음식점",
+                "category2": "선택장소",
+                "lat": selected_restaurant.get("lat"), "lng": selected_restaurant.get("lng"),
+                "stay": selected_restaurant.get("stay", 60),
+                "type": "selected",      # Solver에서 점수 8000점 부여
+                "window": (720, 810),    
+                "addr": selected_restaurant.get("address") or selected_restaurant.get("addr", "")
+            })
+            # 저녁 후보 (18:00 ~ 19:30)
+            nodes.append({
+                "place_id": self._generate_coord_id(selected_restaurant.get("lat"), selected_restaurant.get("lng")),
+                "name": selected_restaurant["name"],
+                "category": "음식점",
+                "category2": "선택장소",
+                "lat": selected_restaurant.get("lat"), "lng": selected_restaurant.get("lng"),
+                "stay": selected_restaurant.get("stay", 70),
+                "type": "selected",      # Solver에서 점수 8000점 부여
+                "window": (1080, 1170),
+                "addr": selected_restaurant.get("address") or selected_restaurant.get("addr", "")
+            })
+        # 선택 식당 이름
+        sel_name = selected_restaurant["name"] if selected_restaurant else ""
+        
+        # 기존 추천 음식점도 추가
         for r in restaurants:
+            if r["name"] == sel_name:
+                continue
+            
             r_type = r.get("type")
             r_window = tuple(r.get("window")) if r.get("window") else None
-
+            
+            # 이미 타입이 lunch/dinner로 정해져 있는 경우
             if r_type in ["lunch", "dinner"]:
                 nodes.append({
                     "place_id": self._generate_coord_id(r.get("lat"), r.get("lng")),
@@ -942,10 +985,11 @@ class RouteOptimizerService:
                     "category2": r.get("category2", "음식점"),
                     "lat": r.get("lat"), "lng": r.get("lng"),
                     "stay": r.get("stay", 70),
-                    "type": r_type,
+                    "type": r_type,     # Solver에서 점수 5000점 부여
                     "window": r_window,
                     "addr": r.get("address") or r.get("addr", "")
                 })
+            # 타입이 안정해진 경우 점심/저녁 후보 모두 생성
             else:
                 for meal_type in ["lunch", "dinner"]:
                     nodes.append({
@@ -1179,8 +1223,28 @@ class RouteOptimizerService:
             end_dt = datetime.strptime(end_time_str, "%H:%M")
             max_horizon = end_dt.hour * 60 + end_dt.minute
 
+        # selected_places 중 '음식점' 분리
+        target_restaurant = None
+        filtered_selected_places = []
+        
+        if selected_places:
+            for sp in selected_places:
+                cat = sp.get('category', '').strip()
+                # '음식점' 또는 'restaurant' 체크
+                if cat in ['음식점', 'restaurant'] and target_restaurant is None:
+                    target_restaurant = sp
+                else:
+                    filtered_selected_places.append(sp)
+        
         # 노드 빌드
-        nodes = self._build_nodes(places, restaurants, fixed_events, day_start_dt, selected_places)
+        nodes = self._build_nodes(
+            places, 
+            restaurants, 
+            fixed_events, 
+            day_start_dt, 
+            selected_places=filtered_selected_places, 
+            selected_restaurant=target_restaurant
+        )
         for idx, node in enumerate(nodes): node["id"] = int(idx)
         n = len(nodes)
 
@@ -1231,8 +1295,8 @@ class RouteOptimizerService:
             print(f"[{target_date_str}] 매트릭스 보정: {fallback_count}개 구간 풀백")
 
         # 타임 윈도우 설정
-        l_s, l_e = 690, 840
-        d_s, d_e = 1050, 1200
+        l_s, l_e = 720, 810   # 12:00 ~ 13:30
+        d_s, d_e = 1080, 1170 # 18:00 ~ 19:30
         windows = []
         for node in nodes:
             if node.get("window"): windows.append(tuple(node["window"]))
@@ -1254,14 +1318,15 @@ class RouteOptimizerService:
             return {"fastest_version": [], "min_transfer_version": []}, []
 
         # 방문 노드 구성 및 도착 시간 주입
-        visited_nodes = []
-        for idx in best_path_indices:
-            node = copy.deepcopy(nodes[idx])
-            node['arrival_min'] = arrival_times.get(idx, 0)
-            win_start = windows[idx][0]
-            real_start = max(node['arrival_min'], win_start)
-            node['departure_min'] = real_start + node.get('stay', 0)
-            visited_nodes.append(node)
+        if best_path_indices:
+            visited_nodes = []
+            for idx in best_path_indices:
+                node = copy.deepcopy(nodes[idx])
+                node['arrival_min'] = arrival_times.get(idx, 0)
+                win_start = windows[idx][0]
+                real_start = max(node['arrival_min'], win_start)
+                node['departure_min'] = real_start + node.get('stay', 0)
+                visited_nodes.append(node)
 
         # 후처리: 틈새 카페(Gap Filler) 삽입
         df_cafes = pd.DataFrame()
@@ -1389,8 +1454,8 @@ class RouteOptimizerService:
 
         [절대 규칙]
         1. 모든 장소의 이름, 좌표(lat, lng), 카테고리는 입력된 데이터와 100% 일치해야 한다.
-        2. 'route' 배열: 제공된 'places' 목록에서 8개를 선택
-        3. 'restaurants' 배열: 제공된 'restaurants' 목록에서 4개를 선택
+        2. 'route' 배열: 반드시 제공된 'places' 목록에서만 8개를 선택한다. (주의: 'restaurants' 목록의 장소를 이곳에 넣지 말 것)
+        3. 'restaurants' 배열: 제공된 'restaurants' 목록에서 4개를 선택한다.
         4. 'accommodations' 배열: 제공된 'accommodations' 목록에서 1개를 선택 (마지막 날은 빈 배열)
         5. 출력: 순수 JSON만 출력
         """
@@ -1632,6 +1697,7 @@ class RouteOptimizerService:
         name_to_lat = ref_df["lat"].to_dict()
         name_to_lng = ref_df["lng"].to_dict()
         name_to_cat = ref_df["category"].to_dict()
+        name_to_cat2 = ref_df["category2"].to_dict()
 
         for day_key, day_plan in plan['plans'].items():
             if 'route' in day_plan:
@@ -1639,21 +1705,28 @@ class RouteOptimizerService:
                     name = item['name']
                     if name in name_to_lat:
                         item['lat'], item['lng'] = name_to_lat[name], name_to_lng[name]
-                        item['category'] = name_to_cat.get(name, item.get('category'))
+                    item['category'] = name_to_cat.get(name, item.get('category'))
+                    item['category2'] = name_to_cat2.get(name, item.get('category2'))
                     item['addr'] = name_to_addr.get(name, "")
                     item['type'] = 'spot'
             
             if 'restaurants' in day_plan:
                 for item in day_plan['restaurants']:
                     name = item['name']
-                    if name in name_to_lat: item['lat'], item['lng'] = name_to_lat[name], name_to_lng[name]
+                    if name in name_to_lat:
+                        item['lat'], item['lng'] = name_to_lat[name], name_to_lng[name]
+                    item['category'] = name_to_cat.get(name, item.get('category'))
+                    item['category2'] = name_to_cat2.get(name, item.get('category2'))
                     item['addr'] = name_to_addr.get(name, "")
                     item['type'] = 'restaurant'
 
             if 'accommodations' in day_plan:
                 for item in day_plan['accommodations']:
                     name = item['name']
-                    if name in name_to_lat: item['lat'], item['lng'] = name_to_lat[name], name_to_lng[name]
+                    if name in name_to_lat:
+                        item['lat'], item['lng'] = name_to_lat[name], name_to_lng[name]
+                    item['category'] = name_to_cat.get(name, item.get('category'))
+                    item['category2'] = name_to_cat2.get(name, item.get('category2'))
                     item['addr'] = name_to_addr.get(name, "")
                     item['type'] = 'accommodation'
 
