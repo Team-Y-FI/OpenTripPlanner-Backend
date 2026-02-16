@@ -2,22 +2,6 @@
   "day1": {
     "route": [
       {
-        "id": "37.577972_126.968897",
-        "name": "필운동 홍건익 가옥",
-        "category": "관광지",
-        "category2": "역사유적지",
-        "lat": 37.5779721893,
-        "lng": 126.9688965725,
-        "addr": "서울특별시 종로구 필운대로1길 14-4(필운동)",
-        "type": "spot",
-        "stay": 90,
-        "window": [
-          0,
-          1440
-        ],
-        "orig_time_str": ""
-      },
-      {
         "id": "37.565564_126.974895",
         "name": "덕수궁",
         "category": "기타",
@@ -87,11 +71,24 @@
         "lng": 126.98583544370061,
         "addr": "서울 종로구 북촌로 14-3",
         "type": "selected",
-        "stay": 70,
+        "stay": 60,
         "window": [
-          1080,
-          1170
+          0,
+          1440
         ],
+        "orig_time_str": ""
+      },
+      {
+        "id": "37.579500_126.986259",
+        "name": "소금집델리 안국",
+        "category": "음식점",
+        "category2": "외국식",
+        "lat": 37.5795001006,
+        "lng": 126.9862588355,
+        "addr": "서울특별시 종로구 북촌로4길 19(계동)",
+        "type": "dinner",
+        "stay": 70,
+        "window": null,
         "orig_time_str": ""
       },
       {
@@ -163,47 +160,35 @@
     "timelines": {
       "fastest_version": [
         {
-          "name": "필운동 홍건익 가옥",
-          "category": "관광지",
-          "category2": "역사유적지",
-          "time": "10:00 - 11:30 [🟢여유]",
-          "transit_to_here": [],
-          "population_level": "인구 여유🟢",
-          "traffic_level": "교통 원활🟢"
-        },
-        {
           "name": "덕수궁",
           "category": "기타",
           "category2": "선택장소",
-          "time": "11:46 - 12:52 [🟡보통 (+6분)]",
-          "transit_to_here": [
-            "도보 : 9분",
-            "대기 : 2분",
-            "[버스][1711, 7016, 7022] : 경복궁역 → 시청앞.덕수궁 : 4분 [🟢원활]",
-            "도보 : 1분"
-          ],
-          "population_level": "인구 보통🟡",
+          "time": "10:00 - 11:00 [🟢여유]",
+          "transit_to_here": [],
+          "population_level": "인구 여유🟢",
           "traffic_level": "교통 원활🟢"
         },
         {
           "name": "운종가",
           "category": "음식점",
           "category2": "",
-          "time": "13:08 - 14:25 [🟡보통 (+7분)]",
+          "time": "12:00 - 13:10 [🟢여유]",
           "transit_to_here": [
+            "출발 전 여유 : 34분",
             "도보 : 5분",
             "대기 : 3분",
             "[지하철][서울 1호선] : 시청 → 종각 : 2분",
-            "도보 : 6분"
+            "도보 : 6분",
+            "현장 대기 : 10분"
           ],
-          "population_level": "인구 보통🟡",
+          "population_level": "인구 여유🟢",
           "traffic_level": "교통 서행🟡"
         },
         {
           "name": "쌈지길",
           "category": "관광지",
           "category2": "도시/지역문화관광",
-          "time": "14:31 - 16:11 [🟡보통 (+10분)]",
+          "time": "13:16 - 14:56 [🟡보통 (+10분)]",
           "transit_to_here": [
             "도보 : 6분"
           ],
@@ -214,7 +199,7 @@
           "name": "인사동",
           "category": "관광지",
           "category2": "기타체험",
-          "time": "16:15 - 17:55 [🟡보통 (+10분)]",
+          "time": "15:00 - 16:40 [🟡보통 (+10분)]",
           "transit_to_here": [
             "도보 : 4분"
           ],
@@ -225,9 +210,20 @@
           "name": "콩카세",
           "category": "음식점",
           "category2": "선택장소",
-          "time": "18:05 - 19:15 [🟢여유]",
+          "time": "16:50 - 17:56 [🟡보통 (+6분)]",
           "transit_to_here": [
             "도보 : 10분"
+          ],
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 서행🟡"
+        },
+        {
+          "name": "소금집델리 안국",
+          "category": "음식점",
+          "category2": "외국식",
+          "time": "18:00 - 19:10 [🟢여유]",
+          "transit_to_here": [
+            "도보 : 4분"
           ],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 서행🟡"
@@ -236,9 +232,9 @@
           "name": "델픽",
           "category": "카페",
           "category2": "선택장소",
-          "time": "19:24 - 20:14 [🟢여유]",
+          "time": "19:15 - 20:05 [🟢여유]",
           "transit_to_here": [
-            "도보 : 9분"
+            "도보 : 5분"
           ],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 원활🟢"
@@ -246,47 +242,35 @@
       ],
       "min_transfer_version": [
         {
-          "name": "필운동 홍건익 가옥",
-          "category": "관광지",
-          "category2": "역사유적지",
-          "time": "10:00 - 11:30 [🟢여유]",
-          "transit_to_here": [],
-          "population_level": "인구 여유🟢",
-          "traffic_level": "교통 원활🟢"
-        },
-        {
           "name": "덕수궁",
           "category": "기타",
           "category2": "선택장소",
-          "time": "11:46 - 12:52 [🟡보통 (+6분)]",
-          "transit_to_here": [
-            "도보 : 9분",
-            "대기 : 2분",
-            "[버스][1711, 7016, 7022] : 경복궁역 → 시청앞.덕수궁 : 4분 [🟢원활]",
-            "도보 : 1분"
-          ],
-          "population_level": "인구 보통🟡",
+          "time": "10:00 - 11:00 [🟢여유]",
+          "transit_to_here": [],
+          "population_level": "인구 여유🟢",
           "traffic_level": "교통 원활🟢"
         },
         {
           "name": "운종가",
           "category": "음식점",
           "category2": "",
-          "time": "13:08 - 14:25 [🟡보통 (+7분)]",
+          "time": "12:00 - 13:10 [🟢여유]",
           "transit_to_here": [
+            "출발 전 여유 : 34분",
             "도보 : 5분",
             "대기 : 3분",
             "[지하철][서울 1호선] : 시청 → 종각 : 2분",
-            "도보 : 6분"
+            "도보 : 6분",
+            "현장 대기 : 10분"
           ],
-          "population_level": "인구 보통🟡",
+          "population_level": "인구 여유🟢",
           "traffic_level": "교통 서행🟡"
         },
         {
           "name": "쌈지길",
           "category": "관광지",
           "category2": "도시/지역문화관광",
-          "time": "14:31 - 16:11 [🟡보통 (+10분)]",
+          "time": "13:16 - 14:56 [🟡보통 (+10분)]",
           "transit_to_here": [
             "도보 : 6분"
           ],
@@ -297,7 +281,7 @@
           "name": "인사동",
           "category": "관광지",
           "category2": "기타체험",
-          "time": "16:15 - 17:55 [🟡보통 (+10분)]",
+          "time": "15:00 - 16:40 [🟡보통 (+10분)]",
           "transit_to_here": [
             "도보 : 4분"
           ],
@@ -308,9 +292,20 @@
           "name": "콩카세",
           "category": "음식점",
           "category2": "선택장소",
-          "time": "18:05 - 19:15 [🟢여유]",
+          "time": "16:50 - 17:56 [🟡보통 (+6분)]",
           "transit_to_here": [
             "도보 : 10분"
+          ],
+          "population_level": "인구 보통🟡",
+          "traffic_level": "교통 서행🟡"
+        },
+        {
+          "name": "소금집델리 안국",
+          "category": "음식점",
+          "category2": "외국식",
+          "time": "18:00 - 19:10 [🟢여유]",
+          "transit_to_here": [
+            "도보 : 4분"
           ],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 서행🟡"
@@ -319,9 +314,9 @@
           "name": "델픽",
           "category": "카페",
           "category2": "선택장소",
-          "time": "19:24 - 20:14 [🟢여유]",
+          "time": "19:15 - 20:05 [🟢여유]",
           "transit_to_here": [
-            "도보 : 9분"
+            "도보 : 5분"
           ],
           "population_level": "인구 여유🟢",
           "traffic_level": "교통 원활🟢"
@@ -331,6 +326,22 @@
   },
   "day2": {
     "route": [
+      {
+        "id": "37.576645_126.974990",
+        "name": "국립고궁박물관",
+        "category": "문화시설",
+        "category2": "전시시설",
+        "lat": 37.576644675,
+        "lng": 126.9749904992,
+        "addr": "서울특별시 종로구 효자로 12 (세종로)",
+        "type": "spot",
+        "stay": 60,
+        "window": [
+          0,
+          1440
+        ],
+        "orig_time_str": ""
+      },
       {
         "id": "37.576084_126.976738",
         "name": "경복궁",
@@ -361,15 +372,15 @@
         "orig_time_str": ""
       },
       {
-        "id": "37.579053_126.986706",
-        "name": "북촌한옥마을",
-        "category": "관광지",
-        "category2": "역사유적지",
-        "lat": 37.5790529392,
-        "lng": 126.9867060298,
-        "addr": "서울특별시 종로구 계동길 37 (계동)",
+        "id": "37.570165_126.999722",
+        "name": "광장시장",
+        "category": "쇼핑",
+        "category2": "시장",
+        "lat": 37.5701653166,
+        "lng": 126.9997217621,
+        "addr": "서울특별시 종로구 창경궁로 88",
         "type": "spot",
-        "stay": 90,
+        "stay": 60,
         "window": [
           0,
           1440
@@ -390,19 +401,6 @@
           0,
           1440
         ],
-        "orig_time_str": ""
-      },
-      {
-        "id": "37.562572_126.996358",
-        "name": "원형들",
-        "category": "틈새 카페",
-        "category2": "카페",
-        "lat": 37.5625716946,
-        "lng": 126.996358395,
-        "addr": "",
-        "type": "gap_filler",
-        "stay": 45,
-        "window": null,
         "orig_time_str": ""
       },
       {
@@ -461,73 +459,76 @@
     "timelines": {
       "fastest_version": [
         {
+          "name": "국립고궁박물관",
+          "category": "문화시설",
+          "category2": "전시시설",
+          "time": "10:00 - 11:00 [🟢여유]",
+          "transit_to_here": [],
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 서행🟡"
+        },
+        {
           "name": "경복궁",
           "category": "관광지",
           "category2": "역사유적지",
-          "time": "10:00 - 11:30 [🟢여유]",
-          "transit_to_here": [],
-          "population_level": "인구 여유🟢",
+          "time": "11:07 - 12:47 [🟡보통 (+10분)]",
+          "transit_to_here": [
+            "도보 : 7분"
+          ],
+          "population_level": "인구 보통🟡",
           "traffic_level": "교통 서행🟡"
         },
         {
           "name": "모던샤브하우스 광화문D타워점",
           "category": "음식점",
           "category2": "한식",
-          "time": "12:00 - 13:17 [🟡보통 (+7분)]",
+          "time": "12:59 - 14:16 [🟡보통 (+7분)]",
           "transit_to_here": [
-            "출발 전 여유 : 8분",
-            "도보 : 12분",
-            "현장 대기 : 10분"
+            "도보 : 12분"
           ],
           "population_level": "인구 보통🟡",
           "traffic_level": "교통 서행🟡"
         },
         {
-          "name": "북촌한옥마을",
-          "category": "관광지",
-          "category2": "역사유적지",
-          "time": "13:41 - 15:21 [🟡보통 (+10분)]",
+          "name": "광장시장",
+          "category": "쇼핑",
+          "category2": "시장",
+          "time": "14:34 - 15:34 [🟢여유]",
           "transit_to_here": [
-            "도보 : 10분",
+            "도보 : 6분",
             "대기 : 3분",
-            "[버스][109, 171, 272, 601, 7025, 710, N51] : 경복궁 → 창덕궁.우리소리박물관 : 5분 [🟡서행 (+2분)]",
-            "도보 : 6분"
+            "[버스][101, 150, 160, 260, 270, 271, 273, 370, 720, 721, 7212, 8101, N26, 심야A21] : 종로1가 → 종로5가.광장시장 : 6분 [🟡서행 (+2분)]",
+            "도보 : 3분"
           ],
-          "population_level": "인구 보통🟡",
+          "population_level": "인구 여유🟢",
           "traffic_level": "교통 서행🟡"
         },
         {
           "name": "을지로 노가리골목",
           "category": "관광지",
           "category2": "도시/지역문화관광",
-          "time": "15:36 - 17:06 [🟢여유]",
+          "time": "15:50 - 17:20 [🟢여유]",
           "transit_to_here": [
-            "도보 : 7분",
-            "대기 : 4분",
-            "[지하철][서울 3호선] : 안국 → 을지로3가 : 3분",
-            "도보 : 1분"
+            "도보 : 6분",
+            "대기 : 3분",
+            "[버스][100] : 광장시장 → 을지로3가 : 3분 [🟡서행 (+1분)]",
+            "도보 : 4분"
           ],
           "population_level": "인구 여유🟢",
-          "traffic_level": "교통 서행🟡"
-        },
-        {
-          "name": "원형들",
-          "category": "틈새 카페",
-          "category2": "카페",
-          "time": "17:15 - 18:12 [🔴혼잡 (+12분)]",
-          "transit_to_here": [
-            "도보 : 9분"
-          ],
-          "population_level": "인구 혼잡🔴",
           "traffic_level": "교통 서행🟡"
         },
         {
           "name": "금동화로숯불구이",
           "category": "음식점",
           "category2": "한식",
-          "time": "18:15 - 19:43 [🔴혼잡 (+18분)]",
+          "time": "18:00 - 19:28 [🔴혼잡 (+18분)]",
           "transit_to_here": [
-            "도보 : 3분"
+            "출발 전 여유 : 19분",
+            "도보 : 1분",
+            "대기 : 3분",
+            "[지하철][서울 3호선] : 을지로3가 → 충무로 : 1분",
+            "도보 : 6분",
+            "현장 대기 : 10분"
           ],
           "population_level": "인구 혼잡🔴",
           "traffic_level": "교통 서행🟡"
@@ -535,70 +536,73 @@
       ],
       "min_transfer_version": [
         {
+          "name": "국립고궁박물관",
+          "category": "문화시설",
+          "category2": "전시시설",
+          "time": "10:00 - 11:00 [🟢여유]",
+          "transit_to_here": [],
+          "population_level": "인구 여유🟢",
+          "traffic_level": "교통 서행🟡"
+        },
+        {
           "name": "경복궁",
           "category": "관광지",
           "category2": "역사유적지",
-          "time": "10:00 - 11:30 [🟢여유]",
-          "transit_to_here": [],
-          "population_level": "인구 여유🟢",
+          "time": "11:07 - 12:47 [🟡보통 (+10분)]",
+          "transit_to_here": [
+            "도보 : 7분"
+          ],
+          "population_level": "인구 보통🟡",
           "traffic_level": "교통 서행🟡"
         },
         {
           "name": "모던샤브하우스 광화문D타워점",
           "category": "음식점",
           "category2": "한식",
-          "time": "12:00 - 13:17 [🟡보통 (+7분)]",
+          "time": "12:59 - 14:16 [🟡보통 (+7분)]",
           "transit_to_here": [
-            "출발 전 여유 : 8분",
-            "도보 : 12분",
-            "현장 대기 : 10분"
+            "도보 : 12분"
           ],
           "population_level": "인구 보통🟡",
           "traffic_level": "교통 서행🟡"
         },
         {
-          "name": "북촌한옥마을",
-          "category": "관광지",
-          "category2": "역사유적지",
-          "time": "13:41 - 15:21 [🟡보통 (+10분)]",
+          "name": "광장시장",
+          "category": "쇼핑",
+          "category2": "시장",
+          "time": "14:34 - 15:34 [🟢여유]",
           "transit_to_here": [
-            "도보 : 24분"
+            "도보 : 6분",
+            "대기 : 3분",
+            "[버스][101, 150, 160, 260, 270, 271, 273, 370, 720, 721, 7212, 8101, N26, 심야A21] : 종로1가 → 종로5가.광장시장 : 6분 [🟡서행 (+2분)]",
+            "도보 : 3분"
           ],
-          "population_level": "인구 보통🟡",
+          "population_level": "인구 여유🟢",
           "traffic_level": "교통 서행🟡"
         },
         {
           "name": "을지로 노가리골목",
           "category": "관광지",
           "category2": "도시/지역문화관광",
-          "time": "15:36 - 17:06 [🟢여유]",
+          "time": "15:50 - 17:20 [🟢여유]",
           "transit_to_here": [
-            "도보 : 7분",
-            "대기 : 4분",
-            "[지하철][서울 3호선] : 안국 → 을지로3가 : 3분",
-            "도보 : 1분"
+            "도보 : 6분",
+            "대기 : 3분",
+            "[버스][100] : 광장시장 → 을지로3가 : 3분 [🟡서행 (+1분)]",
+            "도보 : 4분"
           ],
           "population_level": "인구 여유🟢",
-          "traffic_level": "교통 서행🟡"
-        },
-        {
-          "name": "원형들",
-          "category": "틈새 카페",
-          "category2": "카페",
-          "time": "17:15 - 18:12 [🔴혼잡 (+12분)]",
-          "transit_to_here": [
-            "도보 : 9분"
-          ],
-          "population_level": "인구 혼잡🔴",
           "traffic_level": "교통 서행🟡"
         },
         {
           "name": "금동화로숯불구이",
           "category": "음식점",
           "category2": "한식",
-          "time": "18:15 - 19:43 [🔴혼잡 (+18분)]",
+          "time": "18:00 - 19:28 [🔴혼잡 (+18분)]",
           "transit_to_here": [
-            "도보 : 3분"
+            "출발 전 여유 : 21분",
+            "도보 : 9분",
+            "현장 대기 : 10분"
           ],
           "population_level": "인구 혼잡🔴",
           "traffic_level": "교통 서행🟡"
