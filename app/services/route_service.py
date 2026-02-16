@@ -209,6 +209,13 @@ class SimpleRouteSolver:
                 
                 # 식사 여부 판단 (Type='selected' & Category='음식점' & Window 체크)
                 is_sel_rest = (node_type == "selected" and node["category"] == "음식점")
+                if is_sel_rest:
+                    can_arrive_lunch = (720 <= arrival <= 810)
+                    can_arrive_dinner = (1080 <= arrival <= 1170)
+                    
+                    if not (can_arrive_lunch or can_arrive_dinner):
+                        continue
+                    
                 is_next_lunch = (node_type == "lunch") or (is_sel_rest and abs(win_start - 720) < 60)
                 is_next_dinner = (node_type == "dinner") or (is_sel_rest and abs(win_start - 1080) < 60)
 
@@ -216,7 +223,7 @@ class SimpleRouteSolver:
                 if is_next_lunch and has_lunch: continue
                 if is_next_dinner and has_dinner: continue
                 
-                # 이름 중복 체크 (하루에 같은 식당 2번 방문 방지)ㄴ
+                # 이름 중복 체크 (하루에 같은 식당 2번 방문 방지)
                 if any(self.nodes[p_idx]["name"] == node["name"] for p_idx in path): continue
 
                 # 고정 일정 / 일반 일정 시간 체크
