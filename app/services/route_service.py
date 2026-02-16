@@ -146,15 +146,18 @@ class SimpleRouteSolver:
             actual_start = max(self.start_min, win_start)
             departure_time = actual_start + node.get("stay", 0)
 
-            score_map = {"fixed": 15000, "selected": 8000, "lunch": 5000, "dinner": 5000}
-            initial_score = score_map.get(node["type"], 1000)
+            if node.get("is_selected"):
+                initial_score = 8000 # Selected 점수
+            else:
+                score_map = {"fixed": 15000, "selected": 8000, "lunch": 5000, "dinner": 5000}
+                initial_score = score_map.get(node["type"], 1000)
 
             is_start_lunch = (node["type"] == "lunch")
             is_start_dinner = (node["type"] == "dinner")
             
             # 초기 카운트 설정
             initial_fixed_cnt = 1 if node["type"] == "fixed" else 0
-            initial_selected_cnt = 1 if node["type"] == "selected" else 0
+            initial_selected_cnt = 1 if (node["type"] == "selected" or node.get("is_selected")) else 0
 
             self._dfs(
                 curr_idx=i, 
@@ -245,7 +248,10 @@ class SimpleRouteSolver:
 
                 # 비용 및 점수 계산
                 penalty_cost = 0
-                node_score = {"fixed": 15000, "selected": 8000, "lunch": 5000, "dinner": 5000}.get(node_type, 1000)
+                if node.get("is_selected"):
+                    node_score = 8000
+                else:
+                    node_score = {"fixed": 15000, "selected": 8000, "lunch": 5000, "dinner": 5000}.get(node_type, 1000)
 
                 if len(path) > 1 and wait_time > 30: penalty_cost += (wait_time - 30) * 10
                 penalty_cost += travel_time * 2
@@ -257,7 +263,9 @@ class SimpleRouteSolver:
                 
                 # 재귀 호출 시 카운트 증가
                 next_fixed = fixed_cnt + (1 if node_type == "fixed" else 0)
-                next_selected = selected_cnt + (1 if node_type == "selected" else 0)
+                # 타입이 lunch/dinner라도 is_selected가 True면 selected_cnt 증가
+                is_sel = 1 if (node_type == "selected" or node.get("is_selected")) else 0
+                next_selected = selected_cnt + is_sel
                 
                 self._dfs(
                     next_idx, leave_time, visited, path,
@@ -964,17 +972,50 @@ class RouteOptimizerService:
         if selected_places:
             for sp in selected_places:
                 sp_window = tuple(sp.get("window")) if sp.get("window") else (0, 1440)
-                nodes.append({
-                    "place_id": self._generate_coord_id(sp.get("lat"), sp.get("lng")),
-                    "name": sp["name"],
-                    "category": sp.get("category", "선택장소"),
-                    "category2": sp.get("category2", "선택장소"),
-                    "lat": sp.get("lat"), "lng": sp.get("lng"),
-                    "stay": sp.get("stay") or stay_time_map.get(sp.get("category"), 60),
-                    "type": sp.get("type", "selected"),
-                    "window": sp_window,
-                    "addr": sp.get("address") or sp.get("addr", "")
-                })
+                category = sp.get("category", "선택장소")
+                
+                # [핵심 변경 사항] 카테고리가 '음식점'이면 Lunch/Dinner로 분기
+                if category == "음식점":
+                    # 점심 옵션 추가 (is_selected=True)
+                    nodes.append({
+                        "place_id": self._generate_coord_id(sp.get("lat"), sp.get("lng")),
+                        "name": sp["name"],
+                        "category": category,
+                        "category2": "선택장소",
+                        "lat": sp.get("lat"), "lng": sp.get("lng"),
+                        "stay": sp.get("stay") or 70,  # 식사 시간 기본값
+                        "type": "lunch",               # 타입은 lunch로 설정하여 시간 제약 적용
+                        "window": None,                # lunch 타입은 solver에서 윈도우 자동 할당
+                        "addr": sp.get("address") or sp.get("addr", ""),
+                        "is_selected": True            # [중요] Solver가 이를 선택된 장소로 인식하게 함
+                    })
+                    # 저녁 옵션 추가 (is_selected=True)
+                    nodes.append({
+                        "place_id": self._generate_coord_id(sp.get("lat"), sp.get("lng")),
+                        "name": sp["name"],
+                        "category": category,
+                        "category2": "선택장소",
+                        "lat": sp.get("lat"), "lng": sp.get("lng"),
+                        "stay": sp.get("stay") or 70,
+                        "type": "dinner",              # 타입은 dinner
+                        "window": None,
+                        "addr": sp.get("address") or sp.get("addr", ""),
+                        "is_selected": True
+                    })
+                # 음식점이 아니면 기존 로직대로 처리
+                else:
+                    nodes.append({
+                        "place_id": self._generate_coord_id(sp.get("lat"), sp.get("lng")),
+                        "name": sp["name"],
+                        "category": category,
+                        "category2": "선택장소",
+                        "lat": sp.get("lat"), "lng": sp.get("lng"),
+                        "stay": sp.get("stay") or stay_time_map.get(sp.get("category"), 60),
+                        "type": sp.get("type", "selected"),
+                        "window": sp_window,
+                        "addr": sp.get("address") or sp.get("addr", ""),
+                        "is_selected": True
+                    })
         
         # 고정 일정
         nodes.extend(self._build_fixed_nodes(fixed_events, day_start_dt))
@@ -1707,7 +1748,7 @@ class RouteOptimizerService:
             )
 
             for node in updated_nodes:
-                if node.get('type') == 'selected':
+                if node.get('type') == 'selected' or node.get('is_selected'):
                     global_visited_selected.add(node['name'])
                     print(f"[방문 확정] {node['name']} (다음 날부터 제외)")
             
