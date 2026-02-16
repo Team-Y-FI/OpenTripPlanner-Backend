@@ -1272,8 +1272,8 @@ class RouteOptimizerService:
             print(f"[{target_date_str}] 매트릭스 보정: {fallback_count}개 구간 풀백")
 
         # 타임 윈도우 설정
-        l_s, l_e = 690, 840
-        d_s, d_e = 1050, 1200
+        l_s, l_e = 720, 820
+        d_s, d_e = 1080, 1180
         windows = []
         for node in nodes:
             if node.get("window"): windows.append(tuple(node["window"]))
