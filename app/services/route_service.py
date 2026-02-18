@@ -32,12 +32,12 @@ TARGET_THREADS = int(available_cores)
 os.environ["R5PY_NUM_THREADS"] = str(TARGET_THREADS)
 
 # [Java JVM 설정] R5PY 구동용
-os.environ["JAVA_HOME"] = r"C:\Program Files\Java\jdk-21.0.10"
-os.environ["JAVA_OPTS"] = (
-    f"-Xmx12G "
-    f"-XX:+UseG1GC "
-    f"-Djava.util.concurrent.ForkJoinPool.common.parallelism={TARGET_THREADS}"
-)
+# os.environ["JAVA_HOME"] = r"C:\Program Files\Java\jdk-21.0.10"
+# os.environ["JAVA_OPTS"] = (
+#     f"-Xmx12G "
+#     f"-XX:+UseG1GC "
+#     f"-Djava.util.concurrent.ForkJoinPool.common.parallelism={TARGET_THREADS}"
+# )
 
 # [파일 경로 설정]
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -315,6 +315,7 @@ class RouteOptimizerService:
         if self.is_initialized: return
         start_t = time.time()
         print("리소스 초기화 시작...")
+        print(f"루트 경로 : {BASE_DIR}")
         
         load_dotenv()
         self.api_key = os.getenv("API_KEY_P")
@@ -1450,8 +1451,8 @@ class RouteOptimizerService:
             response = client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
             plan = self._extract_json(response.text)
             
-            with open(RESULT_JSON_PATH, "w", encoding="utf-8") as f:
-                json.dump(plan, f, ensure_ascii=False, indent=2)
+            # with open(RESULT_JSON_PATH, "w", encoding="utf-8") as f:
+            #     json.dump(plan, f, ensure_ascii=False, indent=2)
             
             return plan, 0
         except Exception as e:
