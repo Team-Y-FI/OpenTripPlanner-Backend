@@ -351,7 +351,7 @@ class PlanService:
             node_name = node.get('name') or node.get('title', "이름 없음")
             
             # [Debug] 각 노드별 타입/시간 정보 확인
-            print(f"  [{i}] {node_name}: type={node.get('type')}, orig_time={node.get('orig_time_str')}")
+            print(f"  [{i}] {node_name}: type={node.get('type')}, category={node.get('category')}, orig_time={node.get('orig_time_str')}")
 
             # 분류 로직
             if node.get('type') == 'fixed':

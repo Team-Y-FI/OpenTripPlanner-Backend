@@ -2,6 +2,7 @@ from pydantic import BaseModel, field_validator
 from typing import List, Optional
 
 class FixedEvent(BaseModel):
+    id: Optional[str] = None
     date: str
     title: str
     start_time: str
@@ -40,6 +41,7 @@ class ReplaceSpotsRequest(BaseModel):
     categories: Optional[List[str]] = None  # 원하는 카테고리 (선택적)
 
 class AlternativeSpot(BaseModel):
+    id: Optional[str] = None
     name: str
     category: str
     category2: Optional[str] = None
@@ -48,6 +50,7 @@ class AlternativeSpot(BaseModel):
     reason: Optional[str] = None  # 추천 이유
 
 class PlaceNode(BaseModel):
+    id: Optional[str] = None
     name: str
     category: str
     category2: Optional[str] = ""
