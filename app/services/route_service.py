@@ -32,12 +32,12 @@ TARGET_THREADS = int(available_cores)
 os.environ["R5PY_NUM_THREADS"] = str(TARGET_THREADS)
 
 # [Java JVM 설정] R5PY 구동용
-os.environ["JAVA_HOME"] = r"C:\Program Files\Java\jdk-21.0.10"
-os.environ["JAVA_OPTS"] = (
-    f"-Xmx12G "
-    f"-XX:+UseG1GC "
-    f"-Djava.util.concurrent.ForkJoinPool.common.parallelism={TARGET_THREADS}"
-)
+# os.environ["JAVA_HOME"] = r"C:\Program Files\Java\jdk-21.0.10"
+# os.environ["JAVA_OPTS"] = (
+#     f"-Xmx12G "
+#     f"-XX:+UseG1GC "
+#     f"-Djava.util.concurrent.ForkJoinPool.common.parallelism={TARGET_THREADS}"
+# )
 
 # [파일 경로 설정]
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
