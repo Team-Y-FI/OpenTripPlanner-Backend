@@ -315,6 +315,7 @@ class RouteOptimizerService:
         if self.is_initialized: return
         start_t = time.time()
         print("리소스 초기화 시작...")
+        print(f"루트 경로 : {BASE_DIR}")
         
         load_dotenv()
         self.api_key = os.getenv("API_KEY_P")
