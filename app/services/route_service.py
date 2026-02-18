@@ -1451,8 +1451,8 @@ class RouteOptimizerService:
             response = client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
             plan = self._extract_json(response.text)
             
-            with open(RESULT_JSON_PATH, "w", encoding="utf-8") as f:
-                json.dump(plan, f, ensure_ascii=False, indent=2)
+            # with open(RESULT_JSON_PATH, "w", encoding="utf-8") as f:
+            #     json.dump(plan, f, ensure_ascii=False, indent=2)
             
             return plan, 0
         except Exception as e:
