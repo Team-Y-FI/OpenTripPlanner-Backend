@@ -83,7 +83,7 @@ SEOUL_GU_COORDS = {
 # [제약 조건 및 파라미터]
 FALLBACK_MOVE_MIN = 30         # 경로 탐색 실패 시 기본 이동 시간
 MAX_TRANSFERS = 2              # 최대 환승 횟수
-MAX_TRAVEL_TIME_MIN = 80       # 최대 허용 이동 시간
+MAX_TRAVEL_TIME_MIN = 60       # 최대 허용 이동 시간
 LUNCH_WINDOW = ("12:00", "13:30")
 DINNER_WINDOW = ("18:00", "19:30")
 
@@ -758,8 +758,13 @@ class RouteOptimizerService:
         
         try:
             computer = DetailedItineraries(
-                self.transport_network, origins=ogdf, destinations=dgdf, departure=departure_time, transport_modes=modes,
-                max_public_transport_rides=MAX_TRANSFERS, max_time=timedelta(minutes=MAX_TRAVEL_TIME_MIN), snap_to_network=1000
+                self.transport_network,
+                origins=ogdf, destinations=dgdf,
+                departure=departure_time,
+                transport_modes=modes,
+                max_public_transport_rides=MAX_TRANSFERS,
+                max_time=timedelta(minutes=MAX_TRAVEL_TIME_MIN),
+                snap_to_network=False
             )
             process_computer_result(computer, path_map)
         except: pass
@@ -1356,13 +1361,22 @@ class RouteOptimizerService:
                 curr_cursor = real_start_next + next_node['stay']
 
         # 타임라인 생성 및 반환
+        print(f"[{target_date_str}] 상세 경로 생성(Detailed Path) 시작...")
+        start_path = time.time()
+        
         timeline_base = datetime.combine(base_date, datetime.min.time())
         trip_legs = [(final_nodes[i], final_nodes[i+1]) for i in range(len(final_nodes)-1)]
         path_map = self._get_all_detailed_paths(trip_legs, r5_dep, transport_mode, cached_times=r5_times)
-
+        
+        print(f"[{target_date_str}] 상세 경로 생성 완료 : {round(time.time() - start_path, 2)}초")
+        
+        start_timeline = time.time()
+        
         result = {"fastest_version": self._build_timeline_by_type(final_nodes, path_map, timeline_base, target_date_str, "fastest", transport_mode)}
         if transport_mode != "car":
             result["min_transfer_version"] = self._build_timeline_by_type(final_nodes, path_map, timeline_base, target_date_str, "min_transfer", transport_mode)
+            
+        print(f"[{target_date_str}] 타임라인 조립 완료 : {round(time.time() - start_timeline, 2)}초")
         
         return result, final_nodes
 
@@ -1451,8 +1465,8 @@ class RouteOptimizerService:
             response = client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
             plan = self._extract_json(response.text)
             
-            # with open(RESULT_JSON_PATH, "w", encoding="utf-8") as f:
-            #     json.dump(plan, f, ensure_ascii=False, indent=2)
+            with open(RESULT_JSON_PATH, "w", encoding="utf-8") as f:
+                json.dump(plan, f, ensure_ascii=False, indent=2)
             
             return plan, 0
         except Exception as e:
