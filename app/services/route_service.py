@@ -762,9 +762,11 @@ class RouteOptimizerService:
                 origins=ogdf, destinations=dgdf,
                 departure=departure_time,
                 transport_modes=modes,
+                force_all_to_all=False,
                 max_public_transport_rides=MAX_TRANSFERS,
                 max_time=timedelta(minutes=MAX_TRAVEL_TIME_MIN),
-                snap_to_network=False
+                snap_to_network=False,
+                time_window=timedelta(minutes=5)
             )
             process_computer_result(computer, path_map)
         except: pass
@@ -824,8 +826,14 @@ class RouteOptimizerService:
                 
                 try:
                     rescue_computer = DetailedItineraries(
-                        self.transport_network, origins=rogdf, destinations=rdgdf, departure=departure_time, transport_modes=modes,
-                        max_public_transport_rides=MAX_TRANSFERS, max_time=timedelta(minutes=MAX_TRAVEL_TIME_MIN), snap_to_network=3000
+                        self.transport_network,
+                        origins=rogdf, destinations=rdgdf,
+                        departure=departure_time,
+                        transport_modes=modes,
+                        force_all_to_all=False,
+                        max_public_transport_rides=MAX_TRANSFERS,
+                        max_time=timedelta(minutes=MAX_TRAVEL_TIME_MIN),
+                        snap_to_network=False
                     )
                     process_computer_result(rescue_computer, path_map)
                 except Exception as e:
