@@ -402,8 +402,8 @@ class RouteOptimizerService:
                 print(f"장소 이름 매핑 실패: {e}")
         
         # 모든 장소에 대해 가까운 정류장 미리 계산 (Pre-compute)
-        if self.df_places is not None and self.stop_coords:
-            self._precompute_nearest_stops_for_all()
+        # if self.df_places is not None and self.stop_coords:
+        #     self._precompute_nearest_stops_for_all()
             
         self.init_duration = round(time.time() - start_t, 3)
         self.is_initialized = True
