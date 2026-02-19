@@ -766,7 +766,7 @@ class RouteOptimizerService:
                 max_public_transport_rides=MAX_TRANSFERS,
                 max_time=timedelta(minutes=MAX_TRAVEL_TIME_MIN),
                 snap_to_network=False,
-                time_window=timedelta(minutes=5)
+                departure_time_window=timedelta(minutes=10)
             )
             process_computer_result(computer, path_map)
         except: pass
@@ -833,7 +833,8 @@ class RouteOptimizerService:
                         force_all_to_all=False,
                         max_public_transport_rides=MAX_TRANSFERS,
                         max_time=timedelta(minutes=MAX_TRAVEL_TIME_MIN),
-                        snap_to_network=False
+                        snap_to_network=False,
+                        departure_time_window=timedelta(minutes=10)
                     )
                     process_computer_result(rescue_computer, path_map)
                 except Exception as e:
