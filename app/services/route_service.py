@@ -526,33 +526,33 @@ class RouteOptimizerService:
                 
         return best_stop
     
-    def _precompute_nearest_stops_for_all(self):
-        """
-        서버 시작 시 모든 장소(df_places)에 대해 _find_nearest_stop을 수행하여 캐싱
-        """
-        if self.df_places is None or self.df_places.empty:
-            return
+    # def _precompute_nearest_stops_for_all(self):
+    #     """
+    #     서버 시작 시 모든 장소(df_places)에 대해 _find_nearest_stop을 수행하여 캐싱
+    #     """
+    #     if self.df_places is None or self.df_places.empty:
+    #         return
 
-        print(f"[{len(self.df_places)}개 장소] 인근 정류장 좌표 미리 계산 중... (다소 시간 소요 가능)")
-        count = 0
+    #     print(f"[{len(self.df_places)}개 장소] 인근 정류장 좌표 미리 계산 중... (다소 시간 소요 가능)")
+    #     count = 0
         
-        # DataFrame을 순회하며 계산
-        for idx, row in self.df_places.iterrows():
-            # 장소 ID 식별 (DB 컬럼에 'id'가 있다면 그것을, 없다면 index 사용)
-            lat = row.get('lat')
-            lng = row.get('lng')
+    #     # DataFrame을 순회하며 계산
+    #     for idx, row in self.df_places.iterrows():
+    #         # 장소 ID 식별 (DB 컬럼에 'id'가 있다면 그것을, 없다면 index 사용)
+    #         lat = row.get('lat')
+    #         lng = row.get('lng')
 
-            if lat and lng:
-                # 위에서 정의한 함수 재사용
-                nearest = self._find_nearest_stop(lat, lng, max_dist_meters=800)
+    #         if lat and lng:
+    #             # 위에서 정의한 함수 재사용
+    #             nearest = self._find_nearest_stop(lat, lng, max_dist_meters=800)
                 
-                if nearest:
-                    # 결과 딕셔너리에 저장 (구조: { 장소ID : 정류장정보 })
-                    coord_id = self._generate_coord_id(lat, lng)
-                    self.nearest_stop_map[coord_id] = nearest
-                    count += 1
+    #             if nearest:
+    #                 # 결과 딕셔너리에 저장 (구조: { 장소ID : 정류장정보 })
+    #                 coord_id = self._generate_coord_id(lat, lng)
+    #                 self.nearest_stop_map[coord_id] = nearest
+    #                 count += 1
         
-        print(f"  -> {count}개 장소에 대한 정류장 매핑 완료.")
+    #     print(f"  -> {count}개 장소에 대한 정류장 매핑 완료.")
 
     def _travel_minutes(self, p1, p2, mode="transport"):
         if p1 is None or p2 is None or p1.get('lat') is None or p2.get('lat') is None: return 0
@@ -1474,8 +1474,8 @@ class RouteOptimizerService:
             response = client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
             plan = self._extract_json(response.text)
             
-            with open(RESULT_JSON_PATH, "w", encoding="utf-8") as f:
-                json.dump(plan, f, ensure_ascii=False, indent=2)
+            # with open(RESULT_JSON_PATH, "w", encoding="utf-8") as f:
+            #     json.dump(plan, f, ensure_ascii=False, indent=2)
             
             return plan, 0
         except Exception as e:
