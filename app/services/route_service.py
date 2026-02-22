@@ -580,6 +580,10 @@ class RouteOptimizerService:
                 departure=departure_time,
                 transport_modes=modes
             )
+
+            matrix_df = pd.DataFrame(matrix) 
+            matrix_df.to_excel("travel_time_matrix_debug.xlsx", index=False)
+            print("TravelTimeMatrix가 엑셀로 저장되었습니다.")
             r5_travel_times = {}
             for row in matrix.itertuples():
                 if not pd.isna(row.travel_time):
@@ -768,6 +772,9 @@ class RouteOptimizerService:
                 snap_to_network=False,
                 departure_time_window=timedelta(minutes=10)
             )
+            if not computer.empty:
+                computer.to_excel("detailed_routes_debug.xlsx", index=False)
+                print("상세 경로 데이터가 엑셀로 저장되었습니다.")
             process_computer_result(computer, path_map)
         except: pass
 
@@ -1474,8 +1481,8 @@ class RouteOptimizerService:
             response = client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
             plan = self._extract_json(response.text)
             
-            # with open(RESULT_JSON_PATH, "w", encoding="utf-8") as f:
-            #     json.dump(plan, f, ensure_ascii=False, indent=2)
+            with open(RESULT_JSON_PATH, "w", encoding="utf-8") as f:
+                json.dump(plan, f, ensure_ascii=False, indent=2)
             
             return plan, 0
         except Exception as e:
