@@ -1481,8 +1481,8 @@ class RouteOptimizerService:
             response = client.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt)
             plan = self._extract_json(response.text)
             
-            with open(RESULT_JSON_PATH, "w", encoding="utf-8") as f:
-                json.dump(plan, f, ensure_ascii=False, indent=2)
+            # with open(RESULT_JSON_PATH, "w", encoding="utf-8") as f:
+            #     json.dump(plan, f, ensure_ascii=False, indent=2)
             
             return plan, 0
         except Exception as e:
@@ -1521,7 +1521,8 @@ class RouteOptimizerService:
             nearby_candidates = candidates[candidates['dist'] <= 1.2].sort_values('dist')
             if nearby_candidates.empty: return None
             
-        top_candidates = nearby_candidates.sample(n=6).to_dict('records')
+        sample_size = min(6, len(nearby_candidates))
+        top_candidates = nearby_candidates.sample(n=sample_size).to_dict('records')
         print(f"    [RouteService] Candidates for '{original_name}' (Radius 800m):")
         for c in top_candidates: print(f"      - {c['name']} ({int(c['dist']*1000)}m)")
 
